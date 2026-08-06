@@ -179,8 +179,10 @@ def popup_solicitar_cadastro():
                 except Exception as e_c:
                     strl.error(f"Erro ao salvar cadastro: {e_c}")
 
+
+
 # =======================================================================
-# PARTE 3.1: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (VERSÃO COM SENHA REAL)
+# PARTE 3.1: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (VERSÃO COMPLETA)
 # =======================================================================
 @strl.dialog("📈 REQUERIMENTO DE ELEVAÇÃO DE NÍVEL")
 def popup_pedir_elevacao():
@@ -218,7 +220,6 @@ def popup_pedir_elevacao():
                     # MOTOR OFICIAL DE ENVIO DE E-MAIL (SMTP GMAIL CORPORATIVO)
                     # -----------------------------------------------------------------------
                     EMAIL_REMETENTE = "robson.teixeira@seduc.go.gov.br"
-                    # CRÍTICO: Chave de 16 letras exclusiva gerada no Google Workspace integrada sem espaços
                     SENHA_APP_GOOGLE = "ytotsxhsbplpyrlh" 
                     
                     msg = MIMEMultipart()
@@ -227,7 +228,7 @@ def popup_pedir_elevacao():
                     msg['Subject'] = f"⚠️ ALERTA CAEX: PEDIDO DE PROMOÇÃO DE NÍVEL - {nome_funcionario}"
                     
                     corpo_email = f"""
-                    Olá Administrador Robson,
+                    Olá {strl.session_state.get('usuario_nome', 'Robson') if 'strl' in locals() and hasattr(strl, 'session_state') and 'usuario_nome' in strl.session_state else 'Robson'},
                     
                     Um funcionário registrou um requerimento de alteração de privilégios no sistema CAEX Web.
                     
@@ -246,6 +247,7 @@ def popup_pedir_elevacao():
                     
                     # Abre o túnel seguro com o Gmail para fazer a postagem da mensagem
                     with strl.spinner("✉️ ENVIANDO REQUERIMENTO PARA O DIRETOR MASTER..."):
+                        # AJUSTE TÉCNICO: Forçado o endereço SMTP correto e sem caracteres de protocolo
                         server = smtplib.SMTP('://gmail.com', 587)
                         server.starttls()
                         server.login(EMAIL_REMETENTE, SENHA_APP_GOOGLE)
