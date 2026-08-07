@@ -182,7 +182,7 @@ def popup_solicitar_cadastro():
 
 
 # =======================================================================
-# PARTE 3.1: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (VERSÃO VIA LOG)
+# PARTE 3.1: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
 # =======================================================================
 @strl.dialog("📈 REQUERIMENTO DE ELEVAÇÃO DE NÍVEL")
 def popup_pedir_elevacao():
@@ -213,12 +213,14 @@ def popup_pedir_elevacao():
                     mensagem_log_formatada = f"PEDIDO_PENDENTE | NÍVEL SOLICITADO: {nivel_alvo} | JUSTIFICATIVA: {e_just.upper()}"
                     registrar_log_auditoria(nome_funcionario, mensagem_log_formatada)
                     
-                    strl.success("✅ REQUERIMENTO PROTOCOLADO COM SUCESSO! O pedido foi enviado para o painel de avaliação do Diretor Robson.")
+                    strl.success("✅ REQUERIMENTO PROTOCOLADO COM SUCESSO!")
                     strl.rerun()
                 else:
                     strl.error("Credenciais inválidas. Verifique seu e-mail e senha atual.")
             except Exception as err_envio:
                 strl.error(f"Erro ao processar requisição: {err_envio}")
+
+
 
 # =======================================================================
 # PARTE 3.2: PAINEL CENTRAL (BUSCA RÁPIDA, DASHBOARD E CENTRAL DE NOTIFICAÇÕES)
@@ -239,22 +241,23 @@ if tela_selecionada == "🔍 PAINEL CENTRAL":
             if not pedidos_pendentes.empty:
                 for idx, linha_pedido in pedidos_pendentes.iterrows():
                     funcionario_pedinte = linha_pedido["USUÁRIO /NOME"]
-                    detalhes_acao = linha_pedido["AÇÃO"]
+                    detalhes_acao = str(linha_pedido["AÇÃO"])
                     data_pedido = linha_pedido["DATA"]
                     
-                    # Divide o texto do log para extrair a justificativa limpa
+                    # Processa o texto do log de forma segura usando split
                     partes_pedido = detalhes_acao.split("|")
-                    nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
-                    justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
-                    
-                    # Renderiza o Card de Notificação Amarelo Alerta na sua tela principal
-                    strl.warning(f"""
-                        ⚠️ **SOLICITAÇÃO DE PROMOÇÃO DETECTADA ({data_pedido})**  
-                        • **Funcionário:** {funcionario_pedinte}  
-                        • **Nível Solicitado:** NÍVEL {nivel_pedido}  
-                        • **Justificativa:** "{justificativa_pedido}"  
-                        *Instruções: Para aprovar, abra a aba 'USER' do Excel, altere o nível deste funcionário e salve o arquivo.*
-                    """)
+                    if len(partes_pedido) >= 3:
+                        nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
+                        justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
+                        
+                        # Renderiza o Card de Notificação Amarelo Alerta na sua tela principal
+                        strl.warning(f"""
+                            ⚠️ **SOLICITAÇÃO DE PROMOÇÃO DETECTADA ({data_pedido})**  
+                            • **Funcionário:** {funcionario_pedinte}  
+                            • **Nível Solicitado:** NÍVEL {nivel_pedido}  
+                            • **Justificativa:** "{justificativa_pedido}"  
+                            *Instruções: Para aprovar, abra a aba 'USER' do Excel, altere o nível deste funcionário e salve o arquivo.*
+                        """)
         except:
             pass
 
@@ -263,45 +266,100 @@ if tela_selecionada == "🔍 PAINEL CENTRAL":
 
 
 # =======================================================================
-# PARTE 4: PAINEL CENTRAL (BUSCA RÁPIDA, DASHBOARD E CENTRAL DE NOTIFICAÇÕES)
+# PARTE 4: INTERFACE GRÁFICA DE LOGIN, VALIDAÇÃO E MENUS DA BARRA LATERAL
 # =======================================================================
-if tela_selecionada == "🔍 PAINEL CENTRAL":
+
+if not strl.session_state["autenticado"]:
+    strl.markdown("### 🔐 ACESSO RESTRITO - CONTROLE DE ACESSO")
     
-    # -----------------------------------------------------------------------
-    # CENTRAL DE ALERTAS MASTER: Mostra notificações se o usuário for o Robson (Nível 3)
-    # -----------------------------------------------------------------------
-    if strl.session_state["usuario_login"] == "3":
-        try:
-            df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
-            df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
-            
-            # Filtra na tabela LOG se existem linhas contendo a tag de pedido pendente
-            pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
-            
-            if not pedidos_pendentes.empty:
-                for idx, linha_pedido in pedidos_pendentes.iterrows():
-                    funcionario_pedinte = linha_pedido["USUÁRIO /NOME"]
-                    detalhes_acao = linha_pedido["AÇÃO"]
-                    data_pedido = linha_pedido["DATA"]
+    col_input1, col_input2 = strl.columns(2)
+    with col_input1:
+        usuario_digitado = strl.text_input("E-MAIL DE USUÁRIO:", placeholder="EXEMPLO@EMAIL.COM")
+    with col_input2:
+        senha_digitada = strl.text_input("SENHA:", type="password", placeholder="DIGITE SUA SENHA RESTRITA")
+        
+    btn_l1, btn_l2, btn_l3 = strl.columns(3)
+    with btn_l1:
+        btn_entrar = strl.button("🔓 ENTRAR NO SISTEMA", use_container_width=True)
+    with btn_l2:
+        if strl.button("📝 CADASTRAR NOVO USUÁRIO", use_container_width=True):
+            popup_solicitar_cadastro()
+    with btn_l3:
+        if strl.button("📈 SOLICITAR ELEVAÇÃO DE NÍVEL", use_container_width=True):
+            popup_pedir_elevacao()
+    
+    if btn_entrar:
+        u_clean = usuario_digitado.strip().upper()
+        s_clean = senha_digitada.strip()
+        
+        if u_clean == "" or s_clean == "":
+            strl.error("❌ POR FAVOR, PREENCHA OS CAMPOS DE USUÁRIO E SENHA!")
+        # 1. VALIDAÇÃO PRIORITÁRIA DA CONTA MASTER DO DIRETOR
+        elif u_clean == USUARIO_MASTER and s_clean == SENHA_MASTER:
+            strl.session_state["autenticado"] = True
+            strl.session_state["usuario_nome"] = "ROBSON TEIXEIRA"
+            strl.session_state["usuario_nivel"] = "3 - ADMINISTRADOR MASTER (TOTAL)"
+            strl.session_state["usuario_login"] = "3"
+            registrar_log_auditoria("ROBSON TEIXEIRA", "REALIZOU LOGIN VIA CONTA MASTER INTERNA")
+            strl.rerun()
+        # 2. VALIDAÇÃO DAS DEMAIS CONTAS ARMAZENADAS NA PLANILHA
+        else:
+            try:
+                df_usuarios = pd.read_excel(ARQUIVO_EXCEL, sheet_name="USER")
+                df_usuarios = df_usuarios.fillna("NÃO IDENTIFICADO")
+                df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
+                
+                col_user_real = "USUÁRIO" if "USUÁRIO" in df_usuarios.columns else "USUARIO"
+                col_nivel_real = "NÍVEL" if "NÍVEL" in df_usuarios.columns else "NIVEL"
+                
+                filtro_user = (df_usuarios[col_user_real].astype(str).str.strip().str.upper() == u_clean) & \
+                              (df_usuarios["SENHA"].astype(str).str.strip() == s_clean)
+                usuario_valido = df_usuarios[filtro_user]
+                
+                if not usuario_valido.empty:
+                    nome_real = str(usuario_valido.iloc[0]["NOME"]).upper().strip()
+                    nivel_acesso = str(usuario_valido.iloc[0][col_nivel_real]).strip()
                     
-                    # Divide o texto do log para extrair a justificativa limpa
-                    partes_pedido = detalhes_acao.split("|")
-                    nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
-                    justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
+                    legendas_nivel = {"1": "1 - CONSULTA (RESTRITO)", "2": "2 - EDITOR (PROMOVIDO)", "3": "3 - ADMINISTRADOR (TOTAL)"}
+                    nivel_legenda = legendas_nivel.get(nivel_acesso, f"{nivel_acesso} - DESCONHECIDO")
                     
-                    # Renderiza o Card de Notificação Amarelo Alerta na sua tela principal
-                    strl.warning(f"""
-                        ⚠️ **SOLICITAÇÃO DE PROMOÇÃO DETECTADA ({data_pedido})**  
-                        • **Funcionário:** {funcionario_pedinte}  
-                        • **Nível Solicitado:** NÍVEL {nivel_pedido}  
-                        • **Justificativa:** "{justificativa_pedido}"  
-                        *Instruções: Para aprovar, abra a aba 'USER' do Excel, altere o nível deste funcionário e salve o arquivo.*
-                    """)
-        except:
-            pass
+                    strl.session_state["autenticado"] = True
+                    strl.session_state["usuario_nome"] = nome_real
+                    strl.session_state["usuario_nivel"] = nivel_legenda
+                    strl.session_state["usuario_login"] = nivel_acesso
+                    
+                    registrar_log_auditoria(nome_real, f"REALIZOU LOGIN COM SUCESSO (NÍVEL {nivel_acesso})")
+                    strl.rerun()
+                else:
+                    strl.error("❌ USUÁRIO OU SENHA INCORRETOS! ACESSO NEGADO.")
+            except Exception as err_user:
+                strl.error(f"❌ ERRO CRÍTICO AO ACESSAR TABELA DE USUÁRIOS: {err_user}")
+    strl.stop()
 
-    # Segue o fluxo normal das colunas de busca do Painel Central
-    col_esquerda, col_direita = strl.columns([0.6, 0.4], gap="large")
+# -----------------------------------------------------------------------
+# INTERFACE LOGADA: Montagem dos Menus da Barra Lateral Cinza
+# -----------------------------------------------------------------------
+strl.sidebar.markdown(f"👤 **OPERADOR:** {strl.session_state['usuario_nome']}")
+strl.sidebar.markdown(f"🏷️ **NÍVEL:** {strl.session_state['usuario_nivel']}")
+
+if strl.session_state["usuario_login"] in ["1", "2"]:
+    if strl.sidebar.button("📈 SOLICITAR MUDANÇA DE NÍVEL", use_container_width=True):
+        popup_pedir_elevacao()
+
+if strl.sidebar.button("🚪 SAIR DO SISTEMA", use_container_width=True):
+    registrar_log_auditoria(strl.session_state["usuario_nome"], "LOGOU-SE PARA FORA DO SISTEMA (LOGOUT)")
+    strl.session_state["autenticado"] = False
+    strl.rerun()
+
+strl.sidebar.markdown("---")
+strl.sidebar.markdown("## 🧭 MENU CAEX")
+opcoes_menu_disponiveis = ["🔍 PAINEL CENTRAL"]
+
+if strl.session_state["usuario_login"] in ["2", "3"]:
+    opcoes_menu_disponiveis.append("📝 NOVAS PASTAS")
+
+opcoes_menu_disponiveis.append("📥 EXPORTAR DADOS")
+tela_selecionada = strl.sidebar.radio("Selecione a operação desejada:", opcoes_menu_disponiveis)
 
 
 # -----------------------------------------------------------------------
