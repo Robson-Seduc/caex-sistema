@@ -208,7 +208,8 @@ def popup_pedir_elevacao():
                 user_encontrado = df_usuarios[validacao]
                 
                 if not user_encontrado.empty:
-                    nome_funcionario = str(user_encontrado.iloc["NOME"]).upper()
+                    # CORREÇÃO: Adicionado o .iloc[0] posicional numérico seguro antes da chave de texto
+                    nome_funcionario = str(user_encontrado.iloc[0]["NOME"]).upper()
                     nivel_alvo = e_nivel[:1]
                     
                     # Carimba a solicitação no LOG com uma tag padrão para o painel identificar depois
@@ -275,8 +276,9 @@ if not strl.session_state["autenticado"]:
                 usuario_valido = df_usuarios[filtro_user]
                 
                 if not usuario_valido.empty:
-                    nome_real = str(usuario_valido.iloc["NOME"]).upper().strip()
-                    nivel_acesso = str(usuario_valido.iloc[col_nivel_real]).strip()
+                    # CORREÇÃO DO ÍNDICE: .iloc[0] garante acesso à linha correta como texto
+                    nome_real = str(usuario_valido.iloc[0]["NOME"]).upper().strip()
+                    nivel_acesso = str(usuario_valido.iloc[0][col_nivel_real]).strip()
                     
                     legendas_nivel = {"1": "1 - CONSULTA (RESTRITO)", "2": "2 - EDITOR (PROMOVIDO)", "3": "3 - ADMINISTRADOR (TOTAL)"}
                     nivel_legenda = legendas_nivel.get(nivel_acesso, f"{nivel_acesso} - DESCONHECIDO")
@@ -388,13 +390,13 @@ if tela_selecionada == "🔍 PAINEL CENTRAL":
                 selecao = strl.dataframe(tabela_ordenada, width="stretch", hide_index=True, selection_mode="single-row", on_select="rerun")
                 
                 if selecao and "selection" in selecao and selecao["selection"].get("rows"):
-                    idx_linha_selecionada = selecao["selection"]["rows"]
+                    idx_linha_selecionada = selecao["selection"]["rows"][0]
                     nome_aluno_selecionado = tabela_ordenada.iloc[idx_linha_selecionada]["NOME DO ALUNO"]
                     dados_originais_aluno = resultado_filtro[resultado_filtro["NOME DO ALUNO(A)"] == nome_aluno_selecionado]
                     
                     if not dados_originais_aluno.empty:
-                        indice_real_excel = dados_originais_aluno.index
-                        aluno_row_data = dados_originais_aluno.iloc
+                        indice_real_excel = dados_originais_aluno.index[0]
+                        aluno_row_data = dados_originais_aluno.iloc[0]
                         
                         @strl.dialog("✏️ ALTERAR DADOS DO ALUNO")
                         def popup_editar_aluno(index_linha, dados_aluno):
