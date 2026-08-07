@@ -314,12 +314,15 @@ if strl.sidebar.button("🚪 SAIR DO SISTEMA", use_container_width=True):
 strl.sidebar.markdown("---")
 strl.sidebar.markdown("## 🧭 MENU CAEX")
 
-# MODIFICAÇÃO: Nova taxonomia de menus aplicada conforme sua instrução
 opcoes_menu_disponiveis = ["🏠 PAINEL INICIAL"]
 
 # Libera o painel de modulação administrativa unicamente para a conta Master do Robson
 if strl.session_state["usuario_login"] == "3":
-    opcoes_menu_disponiveis.append("🛠️ C-PANEL")
+    options_menu_available = opcoes_menu_disponiveis.append("🛠️ C-PANEL")
+
+# MODIFICAÇÃO: Insere a opção de abrir chamados exclusivamente para operadores Nível 1 e Nível 2
+if strl.session_state["usuario_login"] in ["1", "2"]:
+    opcoes_menu_disponiveis.append("⚠️ ABRIR CHAMADO")
 
 if strl.session_state["usuario_login"] in ["2", "3"]:
     opcoes_menu_disponiveis.append("📝 NOVAS PASTAS")
@@ -328,15 +331,13 @@ opcoes_menu_disponiveis.append("📥 EXPORTAR DADOS")
 tela_selecionada = strl.sidebar.radio("Selecione a operação desejada:", opcoes_menu_disponiveis)
 
 
-
-
 # =======================================================================
-# PARTE 6: PAINEL DE CONTROLE EXCLUSIVO MASTER (🛠️ C-PANEL)
+# PARTE 6: PAINEL DE CONTROLE EXCLUSIVO MASTER - FLUXO 1 (🛠️ C-PANEL)
 # =======================================================================
 
 if tela_selecionada == "🛠️ C-PANEL":
     strl.markdown("## 🛠️ C-PANEL - CENTRAL DE CONTROLE DO ADMINISTRADOR")
-    strl.markdown("Gerenciamento de permissões de operadores e auditoria de requisições pendentes.")
+    strl.markdown("Gerenciamento avançado de permissões de operadores, manutenção do sistema e atendimento de suporte.")
     
     # Restrição física absoluta de segurança na interface
     if strl.session_state["usuario_login"] != "3":
@@ -347,13 +348,13 @@ if tela_selecionada == "🛠️ C-PANEL":
         df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
         df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
         
-        # Filtra na tabela LOG se existem linhas contendo a tag de pedido pendente
+        # -----------------------------------------------------------------------
+        # FLUXO 1: REQUERIMENTOS DE MUDANÇA DE NÍVEL
+        # -----------------------------------------------------------------------
         pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
         
         if not pedidos_pendentes.empty:
-            strl.markdown("#### 🔔 REQUERIMENTOS DE MUDANÇA DE NÍVEL EM ABERTO")
-            
-            # Filtra exibindo apenas a última manifestação ativa de cada funcionário
+            strl.markdown("#### 📋 FILA DE AVALIAÇÃO DE MUDANÇA DE NÍVEL")
             pedidos_unicos = pedidos_pendentes.drop_duplicates(subset=["USUÁRIO /NOME"], keep="last")
             
             for idx, linha_pedido in pedidos_unicos.iterrows():
@@ -363,19 +364,18 @@ if tela_selecionada == "🛠️ C-PANEL":
                 
                 partes_pedido = detalhes_acao.split("|")
                 if len(partes_pedido) >= 3:
-                    nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
-                    justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
+                    nivel_pedido = partes_pedido.replace("NÍVEL SOLICITADO:", "").strip()
+                    justificativa_pedido = partes_pedido.replace("JUSTIFICATIVA:", "").strip()
                     
                     with strl.container(border=True):
-                        strl.warning(f"⚠️ **Solicitação registrada em: {data_pedido}**")
-                        strl.write(f"• **Funcionário Solicitante:** {funcionario_pedinte}")
-                        strl.write(f"• **Nível Alvo Requerido:** NÍVEL {nivel_pedido}")
-                        strl.write(f"• **Justificativa do Operador:** \"{justificativa_pedido}\"")
+                        strl.markdown(f"👤 **Funcionário:** {funcionario_pedinte} | 📅 **Solicitado em:** {data_pedido}")
+                        strl.write(f"• **Nível Requerido:** NÍVEL {nivel_pedido}")
+                        strl.write(f"• **Justificativa:** \"{justificativa_pedido}\"")
                         
                         col_btn1, col_btn2 = strl.columns([0.2, 0.8])
                         
-                        if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()[0]}", key=f"aprov_cp_{idx}"):
-                            with strl.spinner("Aplicando elevação de cargo no Excel..."):
+                        if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()}", key=f"aprov_cp_{idx}"):
+                            with strl.spinner("Aplicando elevação no Excel..."):
                                 df_user_master = pd.read_excel(ARQUIVO_EXCEL, sheet_name="USER")
                                 df_user_master.columns = [str(c).strip().upper() for c in df_user_master.columns]
                                 
@@ -384,34 +384,139 @@ if tela_selecionada == "🛠️ C-PANEL":
                                 
                                 if filtro_mudar.any():
                                     df_user_master.loc[filtro_mudar, col_nivel_ref] = int(nivel_pedido)
-                                    
                                     with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
                                         df_user_master.to_excel(writer, sheet_name="USER", index=False)
                                         
                                     registrar_log_auditoria("ROBSON TEIXEIRA", f"APROVOU VIA C-PANEL O FUNCIONÁRIO {funcionario_pedinte} PARA O NÍVEL {nivel_pedido}")
-                                    strl.success(f"Nível de {funcionario_pedinte} atualizado com sucesso!")
+                                    strl.success(f"Nível de {funcionario_pedinte} atualizado!")
                                     strl.cache_data.clear()
                                     strl.rerun()
                                 else:
-                                    strl.error("Funcionário não localizado na aba 'USER' para alteração automática.")
+                                    strl.error("Funcionário não localizado na aba 'USER'.")
                                     
                         if col_btn2.button(f"❌ Arquivar Pedido", key=f"recus_cp_{idx}"):
-                            registrar_log_auditoria("ROBSON TEIXEIRA", f"ARQUIVOU / RECUSOU VIA C-PANEL O PEDIDO DE {funcionario_pedinte}")
-                            strl.info("Solicitação removida da fila de decisões.")
+                            registrar_log_auditoria("ROBSON TEIXEIRA", f"ARQUIVOU VIA C-PANEL O PEDIDO DE {funcionario_pedinte}")
+                            strl.info("Solicitação arquivada.")
                             strl.rerun()
             strl.markdown("---")
-        else:
-            strl.info("💡 Nenhuma solicitação de mudança de nível pendente no momento.")
-            
-    except Exception as e_notif:
-        strl.error(f"Erro na varredura do C-PANEL: {e_notif}")
+    except Exception as e_cp_f1:
+        strl.error(f"Erro na varredura do C-PANEL Fluxo 1: {e_cp_f1}")
 
 
 # =======================================================================
-# PARTE 7: 🔍 PAINEL CENTRAL (Busca, Estatísticas de A-Z e Edição Restrita)
+# PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (🛠️ C-PANEL)
+# =======================================================================
+
+# Vinculado diretamente à condicional administrativa iniciada na parte 6
+if tela_selecionada == "🛠️ C-PANEL":
+    try:
+        # -----------------------------------------------------------------------
+        # FLUXO 2: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE
+        # -----------------------------------------------------------------------
+        chamados_abertos = df_log_check[df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)]
+        
+        strl.markdown("#### 🛠️ MURAL DE CHAMADOS TÉCNICOS E SITUAÇÕES ADVERSAS")
+        if not chamados_abertos.empty:
+            # Agrupa para focar nos registros ativos mais recentes por operador
+            chamados_unicos = chamados_abertos.drop_duplicates(subset=["DATA", "USUÁRIO /NOME"], keep="last")
+            
+            for idx_ch, linha_chamado in chamados_unicos.iterrows():
+                operador_chamado = str(linha_chamado["USUÁRIO /NOME"]).upper().strip()
+                texto_chamado = str(linha_chamado["AÇÃO"])
+                data_chamado = linha_chamado["DATA"]
+                
+                # Particiona a string estruturada gerada na Parte 11
+                partes_ch = texto_chamado.split("|")
+                if len(partes_ch) >= 5:
+                    cat_ch = partes_ch.replace("CATEGORIA:", "").strip()
+                    imp_ch = partes_ch.replace("IMPACTO:", "").strip()
+                    anexo_ch = partes_ch.replace("ANEXO:", "").strip()
+                    detalhes_ch = partes_ch.replace("DETALHES:", "").strip()
+                    
+                    with strl.container(border=True):
+                        strl.error(f"🚨 **Chamado Técnico Ativo - {data_chamado}**")
+                        strl.write(f"• **Operador Solicitante:** {operador_chamado}")
+                        strl.write(f"• **Categoria Adversidade:** {cat_ch}")
+                        strl.write(f"• **Nível de Impacto Relatado:** {imp_ch}")
+                        strl.write(f"• **Relato da Situação:** \"{detalhes_ch}\"")
+                        
+                        # Mecanismo de exibição inteligente de imagens anexadas pelo operador na nuvem
+                        if anexo_ch != "NENHUM ANEXO ENVIADO" and os.path.exists(anexo_ch):
+                            with strl.expander("🖼️ CLIQUE AQUI PARA VER A CAPTURA DE TELA DO ERRO"):
+                                strl.image(anexo_ch, caption=f"Evidência visual enviada por {operador_chamado}", use_container_width=True)
+                        else:
+                            strl.write("*• Evidência Visual:* Nenhum arquivo anexado a este ticket.")
+                            
+                        col_ch1, col_ch2 = strl.columns([0.2, 0.8])
+                        
+                        if col_ch1.button(f"🏁 Concluir Atendimento", key=f"Resolv_{idx_ch}"):
+                            # Encerra o ticket carimbando a resolução no log, removendo a tag ativa 'CHAMADO_SUPORTE'
+                            texto_resolvido = f"RESOLVIDO_SUPORTE | O MASTER ENCERROU O CHAMADO DE {operador_chamado} ABERTO EM {data_chamado}"
+                            registrar_log_auditoria("ROBSON TEIXEIRA", texto_resolvido)
+                            strl.success("Chamado marcado como resolvido e retirado da fila!")
+                            strl.rerun()
+        else:
+            strl.success("✅ Excelente! Nenhum chamado operacional pendente de suporte técnico.")
+            
+    except Exception as e_cp_global:
+        strl.error(f"Erro na varredura analítica do C-PANEL: {e_cp_global}")
+
+
+# =======================================================================
+# PARTE 8: 🏠 PAINEL INICIAL (Notificações Master, Busca e Estatísticas)
 # =======================================================================
 
 if tela_selecionada == "🏠 PAINEL INICIAL":
+    
+    # -----------------------------------------------------------------------
+    # CENTRAL DE NOTIFICAÇÕES: Alertas de Nível e Chamados Técnicos na Tela Inicial do Robson
+    # -----------------------------------------------------------------------
+    if strl.session_state["usuario_login"] == "3":
+        try:
+            df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
+            df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
+            
+            # 🔔 ALERTA TIPO 1: Pedidos de Promoção de Nível
+            pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
+            if not pedidos_pendentes.empty:
+                pedidos_unicos = pedidos_pendentes.drop_duplicates(subset=["USUÁRIO /NOME"], keep="last")
+                for idx, linha_pedido in pedidos_unicos.iterrows():
+                    funcionario_pedinte = str(linha_pedido["USUÁRIO /NOME"]).upper().strip()
+                    detalhes_acao = str(linha_pedido["AÇÃO"])
+                    data_pedido = linha_pedido["DATA"]
+                    partes_pedido = detalhes_acao.split("|")
+                    if len(partes_pedido) >= 3:
+                        nivel_pedido = partes_pedido.replace("NÍVEL SOLICITADO:", "").strip()
+                        strl.warning(f"""
+                            ⚠️ **MUDANÇA DE NÍVEL PENDENTE ({data_pedido})**  
+                            O funcionário **{funcionario_pedinte}** solicitou promoção para o **NÍVEL {nivel_pedido}**.  
+                            *Instruções: Para avaliar ou aprovar, acesse a aba '🛠️ C-PANEL' no menu lateral.*
+                        """)
+                        
+            # 🚨 ALERTA TIPO 2: Novos Chamados Técnicos de Operadores
+            chamados_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)]
+            if not chamados_pendentes.empty:
+                chamados_unicos = chamados_pendentes.drop_duplicates(subset=["DATA", "USUÁRIO /NOME"], keep="last")
+                for idx_ch, linha_chamado in chamados_unicos.iterrows():
+                    operador_pedinte = str(linha_chamado["USUÁRIO /NOME"]).upper().strip()
+                    texto_acao = str(linha_chamado["AÇÃO"])
+                    data_chamado = linha_chamado["DATA"]
+                    partes_ch = texto_acao.split("|")
+                    if len(partes_ch) >= 3:
+                        cat_critica = partes_ch.replace("CATEGORIA:", "").strip()
+                        strl.error(f"""
+                            🚨 **NOVO CHAMADO DE SUPORTE OPERACIONAL DETECTADO ({data_chamado})**  
+                            O operador **{operador_pedinte}** reportou uma situação adversa na categoria: **{cat_critica}**.  
+                            *Instruções: Para ler o relatório do erro, visualizar o print de tela anexado e encerrar o ticket, abra a aba '🛠️ C-PANEL'.*
+                        """)
+            
+            # Divisor visual dinâmico caso haja qualquer notificação ativa no cockpit
+            if not pedidos_pendentes.empty or not chamados_pendentes.empty:
+                strl.markdown("---")
+        except:
+            pass
+
+    # Fluxo normal da busca rápida e indicadores do Painel Inicial
     col_esquerda, col_direita = strl.columns([0.6, 0.4], gap="large")
 
     with col_esquerda:
@@ -434,13 +539,13 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                 selecao = strl.dataframe(tabela_ordenada, width="stretch", hide_index=True, selection_mode="single-row", on_select="rerun")
                 
                 if selecao and "selection" in selecao and selecao["selection"].get("rows"):
-                    idx_linha_selecionada = selecao["selection"]["rows"][0]
+                    idx_linha_selecionada = selecao["selection"]["rows"]
                     nome_aluno_selecionado = tabela_ordenada.iloc[idx_linha_selecionada]["NOME DO ALUNO"]
                     dados_originais_aluno = resultado_filtro[resultado_filtro["NOME DO ALUNO(A)"] == nome_aluno_selecionado]
                     
                     if not dados_originais_aluno.empty:
-                        indice_real_excel = dados_originais_aluno.index[0]
-                        aluno_row_data = dados_originais_aluno.iloc[0]
+                        indice_real_excel = dados_originais_aluno.index
+                        aluno_row_data = dados_originais_aluno.iloc
                         
                         @strl.dialog("✏️ ALTERAR DADOS DO ALUNO")
                         def popup_editar_aluno(index_linha, dados_aluno):
@@ -459,7 +564,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                 if ed_nome.strip() == "" or ed_pasta.strip() == "" or ed_caixa.strip() == "":
                                     strl.error("Nenhum campo pode ficar em branco.")
                                 else:
-                                    with strl.spinner("💾 ATUALIZANDO BANCO DE DADOS... POR FAVOR, AGUARDE..."):
+                                    with strl.spinner("💾 ATUALIZANDO BANCO DE DADOS..."):
                                         try:
                                             df_planilha = pd.read_excel(ARQUIVO_EXCEL, sheet_name="BD")
                                             df_planilha.at[index_linha, "NOME DO ALUNO(A)"] = ed_nome.strip().upper()
@@ -507,8 +612,9 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
             strl.error("DADOS INDISPONÍVEIS.")
 
 
+
 # =======================================================================
-# PARTE 8: 📝 NOVAS PASTAS (FORMULÁRIO DO ALUNO + POP-UP DINÂMICO DE ESCOLA)
+# PARTE 9: 📝 NOVAS PASTAS (FORMULÁRIO DO ALUNO + POP-UP DINÂMICO DE ESCOLA)
 # =======================================================================
 
 elif tela_selecionada == "📝 NOVAS PASTAS":
@@ -538,7 +644,7 @@ elif tela_selecionada == "📝 NOVAS PASTAS":
                         coluna_nome = df_escolas.columns
                         escola_final = p_nome.upper().strip()
                         
-                        existe = (df_escolas[coluna_nome].astype(str).str.upper().str.strip() == escola_final).any()
+                        existe = (df_escolas[coluna_nome].astype(str).str.upper().str.strip() == school_final).any() if 'school_final' in locals() else (df_escolas[coluna_nome].astype(str).str.upper().str.strip() == escola_final).any()
 
                         if not existe:
                             nova_linha = pd.DataFrame([{
@@ -617,8 +723,11 @@ elif tela_selecionada == "📝 NOVAS PASTAS":
                         strl.error(f"Erro ao gravar os dados do aluno:\n\n{erro}")
 
 
+
+
+
 # =======================================================================
-# PARTE 9: 📥 EXPORTAR DADOS (DOWNLOAD RESTRITO EM EXCEL DE A-Z)
+# PARTE 10: 📥 EXPORTAR DADOS (DOWNLOAD RESTRITO EM EXCEL DE A-Z)
 # =======================================================================
 
 elif tela_selecionada == "📥 EXPORTAR DADOS":
@@ -658,5 +767,85 @@ elif tela_selecionada == "📥 EXPORTAR DADOS":
                     strl.error(f"Erro ao gerar o arquivo de download: {e_export}")
             else:
                 strl.warning("Não existem alunos cadastrados para esta escola no momento.")
+
+
+# =======================================================================
+# PARTE 11: 🛠️ SUPORTE - ABRIR CHAMADO (EXCLUSIVO NÍVEL 1 E 2)
+# =======================================================================
+
+if tela_selecionada == "⚠️ ABRIR CHAMADO":
+    strl.markdown("## ⚠️ CENTRAL DE SUPORTE - ABRIR CHAMADO")
+    strl.markdown("Utilize este canal direto para reportar erros de sistema, inconsistências no banco de dados ou solicitar apoio técnico à administração master.")
+    
+    with strl.form("formulario_suporte_caex", clear_on_submit=True):
+        strl.markdown("##### 📝 QUESTIONÁRIO DE IDENTIFICAÇÃO DO PROBLEMA")
+        
+        strl.text_input("Operador Solicitante (Identificação Automática):", value=strl.session_state["usuario_nome"], disabled=True)
+        
+        categoria_problema = strl.selectbox(
+            "1. Qual é o tipo de situação adversa que você está enfrentando?",
+            [
+                "--- SELECIONE UMA OPÇÃO ---",
+                "ERRO NA BUSCA (O aluno existe na folha física, mas não aparece na busca)",
+                "ERRO AO SALVAR DADOS (O sistema trava ou mostra erro vermelho ao cadastrar nova pasta)",
+                "INCONSISTÊNCIA NA PLANILHA (Nomes trocados, números de pastas errados ou duplicados)",
+                "LENTIDÃO CRÍTICA (A tabela demora muito para carregar ou atualizar)",
+                "OUTRO PROBLEMA TÉCNICO"
+            ]
+        )
+        
+        impacto_trabalho = strl.radio(
+            "2. Qual o nível de impacto deste problema na sua rotina atual?",
+            ["Baixo (Consigo trabalhar em outras pastas por enquanto)", "Médio (Está atrasando minhas metas do dia)", "Alto (Não consigo realizar nenhuma operação no sistema)"],
+            horizontal=True
+        )
+        
+        descricao_detalhada = strl.text_area(
+            "3. Descreva detalhadamente como o problema acontece:",
+            placeholder="Exemplo: Ao pesquisar o aluno 'MARIA DA SILVA', o sistema retornou o erro X na linha Y...",
+            height=180
+        )
+        
+        strl.markdown("##### 📸 ANEXAR EVIDÊNCIAS VISUAIS")
+        strl.markdown("<small>💡 Dica: Tire um print da sua tela mostrando o erro e anexe abaixo. Limite máximo padrão do servidor: **200 MB** por arquivo.</small>", unsafe_allow_html=True)
+        
+        imagem_anexada = strl.file_uploader(
+            "Selecione uma imagem de captura de tela (Formatos aceitos: PNG, JPG, JPEG):",
+            type=["png", "jpg", "jpeg"],
+            accept_multiple_files=False
+        )
+        
+        submeter_chamado = strl.form_submit_button("🚀 ENVIAR CHAMADO PARA O MASTER")
+        
+        if submeter_chamado:
+            if categoria_problema == "--- SELECIONE UMA OPÇÃO ---" or not descricao_detalhada.strip():
+                strl.error("❌ ERRO: Você deve selecionar uma categoria válida e descrever o problema antes de enviar.")
+            else:
+                with strl.spinner("Registrando seu chamado técnico no acervo..."):
+                    try:
+                        nome_arquivo_salvo = "NENHUM ANEXO ENVIADO"
+                        if imagem_anexada is not None:
+                            pasta_anexos = "ANEXOS_SUPORTE"
+                            if not os.path.exists(pasta_anexos):
+                                os.makedirs(pasta_anexos)
+                            
+                            timestamp_anexo = datetime.now().strftime("%d_%m_%Y_%H_%M_%S")
+                            nome_arquivo_salvo = os.path.join(pasta_anexos, f"ERRO_{timestamp_anexo}_{imagem_anexada.name}")
+                            
+                            with open(nome_arquivo_salvo, "wb") as f_anexo:
+                                f_anexo.write(imagem_anexada.getbuffer())
+                        
+                        mensagem_chamado_log = f"CHAMADO_SUPORTE | CATEGORIA: {categoria_problema} | IMPACTO: {impacto_trabalho.upper()} | ANEXO: {nome_arquivo_salvo} | DETALHES: {descricao_detalhada.upper().strip()}"
+                        
+                        registrar_log_auditoria(strl.session_state["usuario_nome"], mensagem_chamado_log)
+                        strl.success("✅ CHAMADO REGISTRADO COM SUCESSO! O Administrador Master foi notificado e avaliará a situação técnico-operacional.")
+                        strl.balloons()
+                        
+                    except Exception as e_chamado:
+                        strl.error(f"Erro crítico ao processar o envio do chamado técnico: {e_chamado}")
+
+
+
+
 
 
