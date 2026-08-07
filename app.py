@@ -313,7 +313,13 @@ if strl.sidebar.button("🚪 SAIR DO SISTEMA", use_container_width=True):
 
 strl.sidebar.markdown("---")
 strl.sidebar.markdown("## 🧭 MENU CAEX")
-opcoes_menu_disponiveis = ["🔍 PAINEL CENTRAL"]
+
+# MODIFICAÇÃO: Nova taxonomia de menus aplicada conforme sua instrução
+opcoes_menu_disponiveis = ["🏠 PAINEL INICIAL"]
+
+# Libera o painel de modulação administrativa unicamente para a conta Master do Robson
+if strl.session_state["usuario_login"] == "3":
+    opcoes_menu_disponiveis.append("🛠️ C-PANEL")
 
 if strl.session_state["usuario_login"] in ["2", "3"]:
     opcoes_menu_disponiveis.append("📝 NOVAS PASTAS")
@@ -323,84 +329,89 @@ tela_selecionada = strl.sidebar.radio("Selecione a operação desejada:", opcoes
 
 
 
+
 # =======================================================================
-# PARTE 6: PAINEL CENTRAL (BUSCA RÁPIDA, DASHBOARD E CENTRAL DE NOTIFICAÇÕES)
+# PARTE 6: PAINEL DE CONTROLE EXCLUSIVO MASTER (🛠️ C-PANEL)
 # =======================================================================
 
-if tela_selecionada == "🔍 PAINEL CENTRAL":
+if tela_selecionada == "🛠️ C-PANEL":
+    strl.markdown("## 🛠️ C-PANEL - CENTRAL DE CONTROLE DO ADMINISTRADOR")
+    strl.markdown("Gerenciamento de permissões de operadores e auditoria de requisições pendentes.")
     
-    # -----------------------------------------------------------------------
-    # CENTRAL DE ALERTAS MASTER: Mostra notificações e painel de aprovação se for o Robson (Nível 3)
-    # -----------------------------------------------------------------------
-    if strl.session_state["usuario_login"] == "3":
-        try:
-            df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
-            df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
+    # Restrição física absoluta de segurança na interface
+    if strl.session_state["usuario_login"] != "3":
+        strl.error("⚠️ ACESSO NEGADO: Esta área é restrita à conta master da direção.")
+        strl.stop()
+        
+    try:
+        df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
+        df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
+        
+        # Filtra na tabela LOG se existem linhas contendo a tag de pedido pendente
+        pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
+        
+        if not pedidos_pendentes.empty:
+            strl.markdown("#### 🔔 REQUERIMENTOS DE MUDANÇA DE NÍVEL EM ABERTO")
             
-            # Filtra na tabela LOG se existem linhas contendo a tag de pedido pendente
-            pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
+            # Filtra exibindo apenas a última manifestação ativa de cada funcionário
+            pedidos_unicos = pedidos_pendentes.drop_duplicates(subset=["USUÁRIO /NOME"], keep="last")
             
-            if not pedidos_pendentes.empty:
-                strl.markdown("### 🔔 SOLICITAÇÕES DE PROMOÇÃO PENDENTES")
+            for idx, linha_pedido in pedidos_unicos.iterrows():
+                funcionario_pedinte = str(linha_pedido["USUÁRIO /NOME"]).upper().strip()
+                detalhes_acao = str(linha_pedido["AÇÃO"])
+                data_pedido = linha_pedido["DATA"]
                 
-                # Filtra exibindo apenas a última manifestação ativa de cada funcionário
-                pedidos_unicos = pedidos_pendentes.drop_duplicates(subset=["USUÁRIO /NOME"], keep="last")
-                
-                for idx, linha_pedido in pedidos_unicos.iterrows():
-                    funcionario_pedinte = str(linha_pedido["USUÁRIO /NOME"]).upper().strip()
-                    detalhes_acao = str(linha_pedido["AÇÃO"])
-                    data_pedido = linha_pedido["DATA"]
+                partes_pedido = detalhes_acao.split("|")
+                if len(partes_pedido) >= 3:
+                    nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
+                    justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
                     
-                    partes_pedido = detalhes_acao.split("|")
-                    if len(partes_pedido) >= 3:
-                        nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
-                        justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
+                    with strl.container(border=True):
+                        strl.warning(f"⚠️ **Solicitação registrada em: {data_pedido}**")
+                        strl.write(f"• **Funcionário Solicitante:** {funcionario_pedinte}")
+                        strl.write(f"• **Nível Alvo Requerido:** NÍVEL {nivel_pedido}")
+                        strl.write(f"• **Justificativa do Operador:** \"{justificativa_pedido}\"")
                         
-                        # Bloco estruturado de gerenciamento de permissão
-                        with strl.container(border=True):
-                            strl.warning(f"⚠️ **Pedido realizado em {data_pedido}**")
-                            strl.write(f"• **Funcionário:** {funcionario_pedinte}")
-                            strl.write(f"• **Nível Solicitado:** NÍVEL {nivel_pedido}")
-                            strl.write(f"• **Justificativa:** \"{justificativa_pedido}\"")
-                            
-                            col_btn1, col_btn2 = strl.columns([0.2, 0.8])
-                            
-                            if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()[0]}", key=f"aprov_{idx}"):
-                                with strl.spinner("Atualizando permissões..."):
-                                    df_user_master = pd.read_excel(ARQUIVO_EXCEL, sheet_name="USER")
-                                    df_user_master.columns = [str(c).strip().upper() for c in df_user_master.columns]
+                        col_btn1, col_btn2 = strl.columns([0.2, 0.8])
+                        
+                        if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()[0]}", key=f"aprov_cp_{idx}"):
+                            with strl.spinner("Aplicando elevação de cargo no Excel..."):
+                                df_user_master = pd.read_excel(ARQUIVO_EXCEL, sheet_name="USER")
+                                df_user_master.columns = [str(c).strip().upper() for c in df_user_master.columns]
+                                
+                                col_nivel_ref = "NÍVEL" if "NÍVEL" in df_user_master.columns else "NIVEL"
+                                filtro_mudar = df_user_master["NOME"].astype(str).str.upper().str.strip() == funcionario_pedinte
+                                
+                                if filtro_mudar.any():
+                                    df_user_master.loc[filtro_mudar, col_nivel_ref] = int(nivel_pedido)
                                     
-                                    col_nivel_ref = "NÍVEL" if "NÍVEL" in df_user_master.columns else "NIVEL"
-                                    filtro_mudar = df_user_master["NOME"].astype(str).str.upper().str.strip() == funcionario_pedinte
+                                    with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+                                        df_user_master.to_excel(writer, sheet_name="USER", index=False)
+                                        
+                                    registrar_log_auditoria("ROBSON TEIXEIRA", f"APROVOU VIA C-PANEL O FUNCIONÁRIO {funcionario_pedinte} PARA O NÍVEL {nivel_pedido}")
+                                    strl.success(f"Nível de {funcionario_pedinte} atualizado com sucesso!")
+                                    strl.cache_data.clear()
+                                    strl.rerun()
+                                else:
+                                    strl.error("Funcionário não localizado na aba 'USER' para alteração automática.")
                                     
-                                    if filtro_mudar.any():
-                                        df_user_master.loc[filtro_mudar, col_nivel_ref] = int(nivel_pedido)
-                                        
-                                        with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
-                                            df_user_master.to_excel(writer, sheet_name="USER", index=False)
-                                            
-                                        registrar_log_auditoria("ROBSON TEIXEIRA", f"PROMOVEU O FUNCIONÁRIO {funcionario_pedinte} PARA O NÍVEL {nivel_pedido}")
-                                        strl.success(f"Nível de {funcionario_pedinte} atualizado com sucesso!")
-                                        strl.cache_data.clear()
-                                        strl.rerun()
-                                    else:
-                                        strl.error("Funcionário não localizado na aba 'USER' para alteração automática.")
-                                        
-                            if col_btn2.button(f"❌ Recusar", key=f"recus_{idx}"):
-                                registrar_log_auditoria("ROBSON TEIXEIRA", f"RECUSOU O PEDIDO DE PROMOÇÃO DE {funcionario_pedinte}")
-                                strl.info("Solicitação arquivada.")
-                                strl.rerun()
-                strl.markdown("---")
-        except Exception as e_notif:
-            strl.error(f"Erro na renderização das notificações Master: {e_notif}")
-
+                        if col_btn2.button(f"❌ Arquivar Pedido", key=f"recus_cp_{idx}"):
+                            registrar_log_auditoria("ROBSON TEIXEIRA", f"ARQUIVOU / RECUSOU VIA C-PANEL O PEDIDO DE {funcionario_pedinte}")
+                            strl.info("Solicitação removida da fila de decisões.")
+                            strl.rerun()
+            strl.markdown("---")
+        else:
+            strl.info("💡 Nenhuma solicitação de mudança de nível pendente no momento.")
+            
+    except Exception as e_notif:
+        strl.error(f"Erro na varredura do C-PANEL: {e_notif}")
 
 
 # =======================================================================
 # PARTE 7: 🔍 PAINEL CENTRAL (Busca, Estatísticas de A-Z e Edição Restrita)
 # =======================================================================
 
-if tela_selecionada == "🔍 PAINEL CENTRAL":
+if tela_selecionada == "🏠 PAINEL INICIAL":
     col_esquerda, col_direita = strl.columns([0.6, 0.4], gap="large")
 
     with col_esquerda:
