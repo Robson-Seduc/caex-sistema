@@ -225,7 +225,7 @@ def popup_pedir_elevacao():
 
 
 # =======================================================================
-# PARTE 6: INTERFACE GRÁFICA DE LOGIN, VALIDAÇÃO E MENUS DA BARRA LATERAL
+# PARTE 5: INTERFACE GRÁFICA DE LOGIN, VALIDAÇÃO E MENUS DA BARRA LATERAL
 # =======================================================================
 
 if not strl.session_state["autenticado"]:
@@ -276,9 +276,9 @@ if not strl.session_state["autenticado"]:
                 usuario_valido = df_usuarios[filtro_user]
                 
                 if not usuario_valido.empty:
-                    # CORREÇÃO DO ÍNDICE: .iloc[0] garante acesso à linha correta como texto
-                    nome_real = str(usuario_valido.iloc[0]["NOME"]).upper().strip()
-                    nivel_acesso = str(usuario_valido.iloc[0][col_nivel_real]).strip()
+                    # Coleta segura dos valores textuais da linha encontrada
+                    nome_real = str(usuario_valido["NOME"].values[0]).upper().strip()
+                    nivel_acesso = str(usuario_valido[col_nivel_real].values[0]).strip()
                     
                     legendas_nivel = {"1": "1 - CONSULTA (RESTRITO)", "2": "2 - EDITOR (PROMOVIDO)", "3": "3 - ADMINISTRADOR (TOTAL)"}
                     nivel_legenda = legendas_nivel.get(nivel_acesso, f"{nivel_acesso} - DESCONHECIDO")
@@ -322,14 +322,15 @@ opcoes_menu_disponiveis.append("📥 EXPORTAR DADOS")
 tela_selecionada = strl.sidebar.radio("Selecione a operação desejada:", opcoes_menu_disponiveis)
 
 
+
 # =======================================================================
-# PARTE 5: PAINEL CENTRAL (BUSCA RÁPIDA, DASHBOARD E CENTRAL DE NOTIFICAÇÕES)
+# PARTE 6: PAINEL CENTRAL (BUSCA RÁPIDA, DASHBOARD E CENTRAL DE NOTIFICAÇÕES)
 # =======================================================================
 
 if tela_selecionada == "🔍 PAINEL CENTRAL":
     
     # -----------------------------------------------------------------------
-    # CENTRAL DE ALERTAS MASTER: Mostra notificações se o usuário for o Robson (Nível 3)
+    # CENTRAL DE ALERTAS MASTER: Mostra notificações e painel de aprovação se for o Robson (Nível 3)
     # -----------------------------------------------------------------------
     if strl.session_state["usuario_login"] == "3":
         try:
@@ -340,27 +341,59 @@ if tela_selecionada == "🔍 PAINEL CENTRAL":
             pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
             
             if not pedidos_pendentes.empty:
-                for idx, linha_pedido in pedidos_pendentes.iterrows():
-                    funcionario_pedinte = linha_pedido["USUÁRIO /NOME"]
+                strl.markdown("### 🔔 SOLICITAÇÕES DE PROMOÇÃO PENDENTES")
+                
+                # Filtra exibindo apenas a última manifestação ativa de cada funcionário
+                pedidos_unicos = pedidos_pendentes.drop_duplicates(subset=["USUÁRIO /NOME"], keep="last")
+                
+                for idx, linha_pedido in pedidos_unicos.iterrows():
+                    funcionario_pedinte = str(linha_pedido["USUÁRIO /NOME"]).upper().strip()
                     detalhes_acao = str(linha_pedido["AÇÃO"])
                     data_pedido = linha_pedido["DATA"]
                     
-                    # Processa o texto do log de forma segura usando split
                     partes_pedido = detalhes_acao.split("|")
                     if len(partes_pedido) >= 3:
-                        nivel_pedido = partes_pedido.replace("NÍVEL SOLICITADO:", "").strip()
-                        justificativa_pedido = partes_pedido.replace("JUSTIFICATIVA:", "").strip()
+                        nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
+                        justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
                         
-                        # Renderiza o Card de Notificação Amarelo Alerta na sua tela principal
-                        strl.warning(f"""
-                            ⚠️ **SOLICITAÇÃO DE PROMOÇÃO DETECTADA ({data_pedido})**  
-                            • **Funcionário:** {funcionario_pedinte}  
-                            • **Nível Solicitado:** NÍVEL {nivel_pedido}  
-                            • **Justificativa:** "{justificativa_pedido}"  
-                            *Instruções: Para aprovar, abra a aba 'USER' do Excel, altere o nível deste funcionário e salve o arquivo.*
-                        """)
-        except:
-            pass
+                        # Bloco estruturado de gerenciamento de permissão
+                        with strl.container(border=True):
+                            strl.warning(f"⚠️ **Pedido realizado em {data_pedido}**")
+                            strl.write(f"• **Funcionário:** {funcionario_pedinte}")
+                            strl.write(f"• **Nível Solicitado:** NÍVEL {nivel_pedido}")
+                            strl.write(f"• **Justificativa:** \"{justificativa_pedido}\"")
+                            
+                            col_btn1, col_btn2 = strl.columns([0.2, 0.8])
+                            
+                            if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()[0]}", key=f"aprov_{idx}"):
+                                with strl.spinner("Atualizando permissões..."):
+                                    df_user_master = pd.read_excel(ARQUIVO_EXCEL, sheet_name="USER")
+                                    df_user_master.columns = [str(c).strip().upper() for c in df_user_master.columns]
+                                    
+                                    col_nivel_ref = "NÍVEL" if "NÍVEL" in df_user_master.columns else "NIVEL"
+                                    filtro_mudar = df_user_master["NOME"].astype(str).str.upper().str.strip() == funcionario_pedinte
+                                    
+                                    if filtro_mudar.any():
+                                        df_user_master.loc[filtro_mudar, col_nivel_ref] = int(nivel_pedido)
+                                        
+                                        with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+                                            df_user_master.to_excel(writer, sheet_name="USER", index=False)
+                                            
+                                        registrar_log_auditoria("ROBSON TEIXEIRA", f"PROMOVEU O FUNCIONÁRIO {funcionario_pedinte} PARA O NÍVEL {nivel_pedido}")
+                                        strl.success(f"Nível de {funcionario_pedinte} atualizado com sucesso!")
+                                        strl.cache_data.clear()
+                                        strl.rerun()
+                                    else:
+                                        strl.error("Funcionário não localizado na aba 'USER' para alteração automática.")
+                                        
+                            if col_btn2.button(f"❌ Recusar", key=f"recus_{idx}"):
+                                registrar_log_auditoria("ROBSON TEIXEIRA", f"RECUSOU O PEDIDO DE PROMOÇÃO DE {funcionario_pedinte}")
+                                strl.info("Solicitação arquivada.")
+                                strl.rerun()
+                strl.markdown("---")
+        except Exception as e_notif:
+            strl.error(f"Erro na renderização das notificações Master: {e_notif}")
+
 
 
 # =======================================================================
