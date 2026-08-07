@@ -336,7 +336,7 @@ tela_selecionada = strl.sidebar.radio("Selecione a operação desejada:", opcoes
 
 
 # =======================================================================
-# PARTE 6: PAINEL DE CONTROLE EXCLUSIVO MASTER (🛠️ C-PANEL)
+# PARTE 6 E PARTE 7: PAINEL DE CONTROLE EXCLUSIVO MASTER (🛠️ C-PANEL)
 # =======================================================================
 
 if tela_selecionada == "🛠️ C-PANEL":
@@ -352,6 +352,9 @@ if tela_selecionada == "🛠️ C-PANEL":
         df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
         df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
         
+        # -----------------------------------------------------------------------
+        # PARTE 6: REQUERIMENTOS DE MUDANÇA DE NÍVEL (FLUXO 1)
+        # -----------------------------------------------------------------------
         pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
         
         if not pedidos_pendentes.empty:
@@ -401,9 +404,9 @@ if tela_selecionada == "🛠️ C-PANEL":
                             strl.rerun()
             strl.markdown("---")
             
-# -----------------------------------------------------------------------
-# PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE
-# -----------------------------------------------------------------------
+        # -----------------------------------------------------------------------
+        # PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (FLUXO 2)
+        # -----------------------------------------------------------------------
         chamados_abertos = df_log_check[df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)]
         
         strl.markdown("#### 🛠️ MURAL DE CHAMADOS TÉCNICOS E SITUAÇÕES ADVERSAS")
@@ -417,7 +420,6 @@ if tela_selecionada == "🛠️ C-PANEL":
                 
                 partes_ch = texto_chamado.split("|")
                 if len(partes_ch) >= 5:
-                    # EXTRAÇÃO REFEITA: Captura os dados textuais da lista de strings de forma correta por índice [3]
                     cat_ch = partes_ch[1].replace("CATEGORIA:", "").strip()
                     imp_ch = partes_ch[2].replace("IMPACTO:", "").strip()
                     anexo_ch = partes_ch[3].replace("ANEXO:", "").strip()
@@ -448,7 +450,6 @@ if tela_selecionada == "🛠️ C-PANEL":
             
     except Exception as e_cp_global:
         strl.error(f"Erro na varredura analítica do C-PANEL: {e_cp_global}")
-
 
 
 # =======================================================================
