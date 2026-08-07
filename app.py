@@ -277,8 +277,8 @@ if not strl.session_state["autenticado"]:
                 usuario_valido = df_usuarios[filtro_user]
                 
                 if not usuario_valido.empty:
-                    nome_real = str(usuario_valido["NOME"].values[0]).upper().strip()
-                    nivel_acesso = str(usuario_valido[col_nivel_real].values[0]).strip()
+                    nome_real = str(usuario_valido.iloc["NOME"]).upper().strip()
+                    nivel_acesso = str(usuario_valido.iloc[col_nivel_real]).strip()
                     
                     legendas_nivel = {"1": "1 - CONSULTA (RESTRITO)", "2": "2 - EDITOR (PROMOVIDO)", "3": "3 - ADMINISTRADOR (TOTAL)"}
                     nivel_legenda = legendas_nivel.get(nivel_acesso, f"{nivel_acesso} - DESCONHECIDO")
@@ -327,20 +327,21 @@ if strl.session_state["usuario_login"] in ["2", "3"]:
 
 opcoes_menu_disponiveis.append("📥 EXPORTAR DADOS")
 
-# CORREÇÃO CRÍTICA DO MENU: Mecanismo que intercepta o redirecionamento automático
-# Se o formulário ativou a flag de sucesso, forçamos o índice padrão a apontar para "🏠 PAINEL INICIAL" (posição 0)
+# CORREÇÃO CRÍTICA DO SELETOR: Controla a posição do menu via índice numérico puro
 index_menu_padrao = 0
 if "chamado_sucesso" in strl.session_state and strl.session_state["chamado_sucesso"] == True:
-    index_menu_padrao = 0
-elif "tela_selecionada" in strl.session_state and strl.session_state["tela_selecionada"] in opcoes_menu_disponiveis:
-    index_menu_padrao = opcoes_menu_disponiveis.index(strl.session_state["tela_selecionada"])
+    index_menu_padrao = 0  # Força a apontar para o Painel Inicial (posição 0)
+elif "chave_menu" in strl.session_state and strl.session_state["chave_menu"] in opcoes_menu_disponiveis:
+    index_menu_padrao = opcoes_menu_disponiveis.index(strl.session_state["chave_menu"])
 
+# O radio agora usa a key neutra 'chave_menu' para salvar o estado sem travar atribuições
 tela_selecionada = strl.sidebar.radio(
     "Selecione a operação desejada:", 
     opcoes_menu_disponiveis, 
     index=index_menu_padrao,
-    key="tela_selecionada"
+    key="chave_menu"
 )
+
 
 
 # =======================================================================
@@ -868,7 +869,6 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
             if categoria_problema == "--- SELECIONE UMA OPÇÃO ---" or not descricao_detalhada.strip():
                 strl.error("❌ ERRO: Você deve selecionar uma categoria válida e descrever o problema antes de enviar.")
             else:
-                # Reseta qualquer flag de sucesso antiga antes do processamento
                 strl.session_state["chamado_sucesso"] = False
                 
                 with strl.spinner("Registrando seu chamado técnico no acervo..."):
@@ -905,18 +905,20 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                         with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
                             df_log_novo.to_excel(writer, sheet_name="LOG", index=False)
                         
-                        # CORREÇÃO DEFINITIVA DO REDIRECIONAMENTO: Ativa as chaves de controle de estado
+                        # CORREÇÃO DEFINITIVA DO REDIRECIONAMENTO: Ativa a flag de sucesso para sincronizar o índice 0 (Painel Inicial)
                         strl.session_state["chamado_sucesso"] = True
-                        strl.session_state["tela_selecionada"] = "🏠 PAINEL INICIAL"
                         strl.rerun()
                         
                     except Exception as e_chamado:
                         strl.error(f"Erro crítico ao processar o envio do chamado técnico: {e_chamado}")
 
-# Bloco ouvinte que roda fora do form: Se a flag for verdadeira, dispara o toast profissional na tela inicial
+# Bloco ouvinte que roda fora do form: Se a flag for verdadeira, dispara a confirmação na tela inicial
 if "chamado_sucesso" in strl.session_state and strl.session_state["chamado_sucesso"] == True:
     strl.toast("✅ Chamado registrado com sucesso!", icon="📥")
-    # Desliga a flag para o toast não reaparecer nos próximos cliques normais de busca
     strl.session_state["chamado_sucesso"] = False
+
+
+
+
 
 
