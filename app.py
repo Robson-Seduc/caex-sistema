@@ -208,14 +208,14 @@ def popup_pedir_elevacao():
                 user_encontrado = df_usuarios[validacao]
                 
                 if not user_encontrado.empty:
-                    nome_funcionario = str(user_encontrado.iloc[0]["NOME"]).upper()
+                    nome_funcionario = str(user_encontrado.iloc["NOME"]).upper()
                     nivel_alvo = e_nivel[:1]
                     
                     # Carimba a solicitação no LOG com uma tag padrão para o painel identificar depois
                     mensagem_log_formatada = f"PEDIDO_PENDENTE | NÍVEL SOLICITADO: {nivel_alvo} | JUSTIFICATIVA: {e_just.upper()}"
                     registrar_log_auditoria(nome_funcionario, mensagem_log_formatada)
                     
-                    strl.success("✅ REQUERIMENTO PROTOCOLADO WITH SUCESSO!")
+                    strl.success("✅ REQUERIMENTO PROTOCOLADO COM SUCESSO!")
                     strl.rerun()
                 else:
                     strl.error("Credenciais inválidas. Verifique seu e-mail e senha atual.")
@@ -223,13 +223,9 @@ def popup_pedir_elevacao():
                 strl.error(f"Erro ao processar requisição: {err_envio}")
 
 
-
-
 # =======================================================================
 # PARTE 6: INTERFACE GRÁFICA DE LOGIN, VALIDAÇÃO E MENUS DA BARRA LATERAL
 # =======================================================================
-# ATENÇÃO: Esta interface foi movida estruturalmente para antes da Parte 5 e 7 
-# para resolver o erro 'NameError: name tela_selecionada is not defined'.
 
 if not strl.session_state["autenticado"]:
     strl.markdown("### 🔐 ACESSO RESTRITO - CONTROLE DE ACESSO")
@@ -279,8 +275,8 @@ if not strl.session_state["autenticado"]:
                 usuario_valido = df_usuarios[filtro_user]
                 
                 if not usuario_valido.empty:
-                    nome_real = str(usuario_valido.iloc[0]["NOME"]).upper().strip()
-                    nivel_acesso = str(usuario_valido.iloc[0][col_nivel_real]).strip()
+                    nome_real = str(usuario_valido.iloc["NOME"]).upper().strip()
+                    nivel_acesso = str(usuario_valido.iloc[col_nivel_real]).strip()
                     
                     legendas_nivel = {"1": "1 - CONSULTA (RESTRITO)", "2": "2 - EDITOR (PROMOVIDO)", "3": "3 - ADMINISTRADOR (TOTAL)"}
                     nivel_legenda = legendas_nivel.get(nivel_acesso, f"{nivel_acesso} - DESCONHECIDO")
@@ -350,8 +346,8 @@ if tela_selecionada == "🔍 PAINEL CENTRAL":
                     # Processa o texto do log de forma segura usando split
                     partes_pedido = detalhes_acao.split("|")
                     if len(partes_pedido) >= 3:
-                        nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
-                        justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
+                        nivel_pedido = partes_pedido.replace("NÍVEL SOLICITADO:", "").strip()
+                        justificativa_pedido = partes_pedido.replace("JUSTIFICATIVA:", "").strip()
                         
                         # Renderiza o Card de Notificação Amarelo Alerta na sua tela principal
                         strl.warning(f"""
@@ -374,7 +370,7 @@ if tela_selecionada == "🔍 PAINEL CENTRAL":
 
     with col_esquerda:
         strl.markdown("### 🔍 BUSCA RÁPIDA DE ALUNOS")
-        termo_busca = strl.text_input("Digite o Nome do Aluno (or parte dele):", placeholder="[ DIGITE O NOME AQUI... ]")
+        termo_busca = strl.text_input("Digite o Nome do Aluno (ou parte dele):", placeholder="[ DIGITE O NOME AQUI... ]")
         
         if termo_busca:
             termo_upper = termo_busca.strip().upper()
@@ -392,13 +388,13 @@ if tela_selecionada == "🔍 PAINEL CENTRAL":
                 selecao = strl.dataframe(tabela_ordenada, width="stretch", hide_index=True, selection_mode="single-row", on_select="rerun")
                 
                 if selecao and "selection" in selecao and selecao["selection"].get("rows"):
-                    idx_linha_selecionada = selecao["selection"]["rows"][0]
+                    idx_linha_selecionada = selecao["selection"]["rows"]
                     nome_aluno_selecionado = tabela_ordenada.iloc[idx_linha_selecionada]["NOME DO ALUNO"]
                     dados_originais_aluno = resultado_filtro[resultado_filtro["NOME DO ALUNO(A)"] == nome_aluno_selecionado]
                     
                     if not dados_originais_aluno.empty:
-                        indice_real_excel = dados_originais_aluno.index[0]
-                        aluno_row_data = dados_originais_aluno.iloc[0]
+                        indice_real_excel = dados_originais_aluno.index
+                        aluno_row_data = dados_originais_aluno.iloc
                         
                         @strl.dialog("✏️ ALTERAR DADOS DO ALUNO")
                         def popup_editar_aluno(index_linha, dados_aluno):
@@ -493,7 +489,7 @@ elif tela_selecionada == "📝 NOVAS PASTAS":
                 with strl.spinner("💾 GRAVANDO NOVA ESCOLA NO ACERVO... POR FAVOR, AGUARDE..."):
                     try:
                         df_escolas = pd.read_excel(ARQUIVO_EXCEL, sheet_name="ESCOLAS")
-                        coluna_nome = df_escolas.columns[0]
+                        coluna_nome = df_escolas.columns
                         escola_final = p_nome.upper().strip()
                         
                         existe = (df_escolas[coluna_nome].astype(str).str.upper().str.strip() == escola_final).any()
@@ -554,8 +550,9 @@ elif tela_selecionada == "📝 NOVAS PASTAS":
                 with strl.spinner("📝 PROCESSANDO BANCO DE DADOS E GRAVANDO ALUNO... POR FAVOR, AGUARDE..."):
                     try:
                         df_bd = pd.read_excel(ARQUIVO_EXCEL, sheet_name="BD")
+                        escola_formatada_final = escola_ativa.upper().strip()
                         nova_linha_aluno = pd.DataFrame([{
-                            "UNIDADE ESCOLAR": school_active := escola_ativa.upper().strip(), 
+                            "UNIDADE ESCOLAR": escola_formatada_final, 
                             "NOME DO ALUNO(A)": nome_aluno.upper().strip(), 
                             "Nº DA PASTA": numero_pasta.upper().strip(), 
                             "PASTA ARQUIVO": caixa_arquivo.upper().strip(), 
@@ -615,3 +612,5 @@ elif tela_selecionada == "📥 EXPORTAR DADOS":
                     strl.error(f"Erro ao gerar o arquivo de download: {e_export}")
             else:
                 strl.warning("Não existem alunos cadastrados para esta escola no momento.")
+
+
