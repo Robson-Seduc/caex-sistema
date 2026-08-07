@@ -277,8 +277,8 @@ if not strl.session_state["autenticado"]:
                 usuario_valido = df_usuarios[filtro_user]
                 
                 if not usuario_valido.empty:
-                    nome_real = str(usuario_valido.iloc["NOME"]).upper().strip()
-                    nivel_acesso = str(usuario_valido.iloc[col_nivel_real]).strip()
+                    nome_real = str(usuario_valido.iloc[0]["NOME"]).upper().strip()
+                    nivel_acesso = str(usuario_valido.iloc[0][col_nivel_real]).strip()
                     
                     legendas_nivel = {"1": "1 - CONSULTA (RESTRITO)", "2": "2 - EDITOR (PROMOVIDO)", "3": "3 - ADMINISTRADOR (TOTAL)"}
                     nivel_legenda = legendas_nivel.get(nivel_acesso, f"{nivel_acesso} - DESCONHECIDO")
@@ -327,20 +327,22 @@ if strl.session_state["usuario_login"] in ["2", "3"]:
 
 opcoes_menu_disponiveis.append("📥 EXPORTAR DADOS")
 
-# CORREÇÃO CRÍTICA DO SELETOR: Controla a posição do menu via índice numérico puro
-index_menu_padrao = 0
+# CORREÇÃO CRÍTICA DO FLUXO: Intercepta a flag ANTES de o rádio ser instanciado na tela.
+# Ao mudar a chave diretamente aqui, o rádio atualiza a seleção de forma imediata e sem erros.
 if "chamado_sucesso" in strl.session_state and strl.session_state["chamado_sucesso"] == True:
-    index_menu_padrao = 0  # Força a apontar para o Painel Inicial (posição 0)
-elif "chave_menu" in strl.session_state and strl.session_state["chave_menu"] in opcoes_menu_disponiveis:
-    index_menu_padrao = opcoes_menu_disponiveis.index(strl.session_state["chave_menu"])
+    strl.session_state["chave_menu"] = "🏠 PAINEL INICIAL"
 
-# O radio agora usa a key neutra 'chave_menu' para salvar o estado sem travar atribuições
+# Inicializa a variável com o primeiro item se a sessão estiver limpa
+if "chave_menu" not in strl.session_state:
+    strl.session_state["chave_menu"] = "🏠 PAINEL INICIAL"
+
+# Rádio conectado diretamente à sessão
 tela_selecionada = strl.sidebar.radio(
     "Selecione a operação desejada:", 
     opcoes_menu_disponiveis, 
-    index=index_menu_padrao,
     key="chave_menu"
 )
+
 
 
 
@@ -905,17 +907,18 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                         with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
                             df_log_novo.to_excel(writer, sheet_name="LOG", index=False)
                         
-                        # CORREÇÃO DEFINITIVA DO REDIRECIONAMENTO: Ativa a flag de sucesso para sincronizar o índice 0 (Painel Inicial)
+                        # CORREÇÃO DEFINITIVA DO DIRECIONAMENTO: Ativa a flag de sucesso
                         strl.session_state["chamado_sucesso"] = True
                         strl.rerun()
                         
                     except Exception as e_chamado:
                         strl.error(f"Erro crítico ao processar o envio do chamado técnico: {e_chamado}")
 
-# Bloco ouvinte que roda fora do form: Se a flag for verdadeira, dispara a confirmação na tela inicial
+# Ouvinte externo: Se a flag for verdadeira, dispara a mensagem e desliga o gatilho
 if "chamado_sucesso" in strl.session_state and strl.session_state["chamado_sucesso"] == True:
     strl.toast("✅ Chamado registrado com sucesso!", icon="📥")
     strl.session_state["chamado_sucesso"] = False
+
 
 
 
