@@ -334,6 +334,7 @@ opcoes_menu_disponiveis.append("📥 EXPORTAR DADOS")
 tela_selecionada = strl.sidebar.radio("Selecione a operação desejada:", opcoes_menu_disponiveis)
 
 
+
 # =======================================================================
 # PARTE 6: PAINEL DE CONTROLE EXCLUSIVO MASTER - FLUXO 1 (🛠️ C-PANEL)
 # =======================================================================
@@ -407,11 +408,14 @@ if tela_selecionada == "🛠️ C-PANEL":
 
 
 
+
 # =======================================================================
 # PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (🛠️ C-PANEL)
 # =======================================================================
 
-# Vinculado diretamente à condicional administrativa iniciada na parte 6
+# ATENÇÃO: Compartilha a abertura condicional iniciada no bloco anterior da Parte 6.
+# Este bloco foi corrigido com a indexação segura de strings para evitar quebra de listas.
+
 if tela_selecionada == "🛠️ C-PANEL":
     try:
         # -----------------------------------------------------------------------
@@ -421,7 +425,6 @@ if tela_selecionada == "🛠️ C-PANEL":
         
         strl.markdown("#### 🛠️ MURAL DE CHAMADOS TÉCNICOS E SITUAÇÕES ADVERSAS")
         if not chamados_abertos.empty:
-            # Agrupa para focar nos registros ativos mais recentes por operador
             chamados_unicos = chamados_abertos.drop_duplicates(subset=["DATA", "USUÁRIO /NOME"], keep="last")
             
             for idx_ch, linha_chamado in chamados_unicos.iterrows():
@@ -429,10 +432,8 @@ if tela_selecionada == "🛠️ C-PANEL":
                 texto_chamado = str(linha_chamado["AÇÃO"])
                 data_chamado = linha_chamado["DATA"]
                 
-                # Particiona a string estruturada gerada na Parte 11
                 partes_ch = texto_chamado.split("|")
                 if len(partes_ch) >= 5:
-                    # CORREÇÃO CRÍTICA: Tratamento feito acessando os elementos corretos da lista por índice
                     cat_ch = partes_ch[1].replace("CATEGORIA:", "").strip()
                     imp_ch = partes_ch[2].replace("IMPACTO:", "").strip()
                     anexo_ch = partes_ch[3].replace("ANEXO:", "").strip()
@@ -445,7 +446,6 @@ if tela_selecionada == "🛠️ C-PANEL":
                         strl.write(f"• **Nível de Impacto Relatado:** {imp_ch}")
                         strl.write(f"• **Relato da Situação:** \"{detalhes_ch}\"")
                         
-                        # Mecanismo de exibição inteligente de imagens anexadas pelo operador na nuvem
                         if anexo_ch != "NENHUM ANEXO ENVIADO" and os.path.exists(anexo_ch):
                             with strl.expander("🖼️ CLIQUE AQUI PARA VER A CAPTURA DE TELA DO ERRO"):
                                 strl.image(anexo_ch, caption=f"Evidência visual enviada por {operador_chamado}", use_container_width=True)
@@ -455,10 +455,9 @@ if tela_selecionada == "🛠️ C-PANEL":
                         col_ch1, col_ch2 = strl.columns([0.2, 0.8])
                         
                         if col_ch1.button(f"🏁 Concluir Atendimento", key=f"Resolv_{idx_ch}"):
-                            # Encerra o ticket carimbando a resolução no log, removendo a tag ativa 'CHAMADO_SUPORTE'
                             texto_resolvido = f"RESOLVIDO_SUPORTE | O MASTER ENCERROU O CHAMADO DE {operador_chamado} ABERTO EM {data_chamado}"
                             registrar_log_auditoria("ROBSON TEIXEIRA", texto_resolvido)
-                            strl.success("Chamado marcado como resolvido e retirado da fila!")
+                            strl.success("Chamado marcado como resolvido!")
                             strl.rerun()
         else:
             strl.success("✅ Excelente! Nenhum chamado operacional pendente de suporte técnico.")
