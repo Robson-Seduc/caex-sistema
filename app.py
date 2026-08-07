@@ -896,8 +896,8 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                         # Alerta flutuante profissional de confirmação antes de redirecionar
                         strl.toast("✅ Chamado registrado com sucesso!", icon="📥")
                         
-                        # Altera o estado do menu para forçar o retorno à tela inicial na próxima renderização
-                        strl.session_state["tela_selecionada_atual"] = "🏠 PAINEL INICIAL"
+                        # CORREÇÃO DEFINITIVA: Força a atualização da variável exata escutada pelo menu lateral
+                        strl.session_state["tela_selecionada"] = "🏠 PAINEL INICIAL"
                         strl.rerun()
                         
                     except Exception as e_chamado:
