@@ -827,7 +827,7 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                 "ERRO NA BUSCA (O aluno existe na folha física, mas não aparece na busca)",
                 "ERRO AO SALVAR DADOS (O sistema trava ou mostra erro vermelho ao cadastrar nova pasta)",
                 "INCONSISTÊNCIA NA PLANILHA (Nomes trocados, números de pastas errados ou duplicados)",
-                "LENTIDão CRÍTICA (A tabela demora muito para carregar ou atualizar)",
+                "LENTIDÃO CRÍTICA (A tabela demora muito para carregar ou atualizar)",
                 "OUTRO PROBLEMA TÉCNICO"
             ]
         )
@@ -875,7 +875,6 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                         
                         mensagem_chamado_log = f"CHAMADO_SUPORTE | CATEGORIA: {categoria_problema} | IMPACTO: {impacto_trabalho.upper()} | ANEXO: {nome_arquivo_salvo} | DETALHES: {descricao_detalhada.upper().strip()}"
                         
-                        # CORREÇÃO CRÍTICA: Abre a planilha para gravar a nova linha inserindo explicitamente a flag 'ABERTO' na coluna STATUS
                         df_log_atual = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
                         
                         nome_pc = socket.gethostname().upper()
@@ -887,18 +886,21 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                             "REDE": usuario_rede,
                             "USUÁRIO /NOME": str(strl.session_state["usuario_nome"]).upper().strip(),
                             "AÇÃO": mensagem_chamado_log.upper().strip(),
-                            "STATUS": "ABERTO"  # Carimba o chamado como pendente na criação
+                            "STATUS": "ABERTO"
                         }])
                         
                         df_log_novo = pd.concat([df_log_atual, nova_linha_chamado], ignore_index=True)
                         with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
                             df_log_novo.to_excel(writer, sheet_name="LOG", index=False)
                         
+                        # Alerta flutuante profissional de confirmação antes de redirecionar
                         strl.toast("✅ Chamado registrado com sucesso!", icon="📥")
+                        
+                        # Altera o estado do menu para forçar o retorno à tela inicial na próxima renderização
+                        strl.session_state["tela_selecionada_atual"] = "🏠 PAINEL INICIAL"
                         strl.rerun()
                         
                     except Exception as e_chamado:
                         strl.error(f"Erro crítico ao processar o envio do chamado técnico: {e_chamado}")
-
 
 
