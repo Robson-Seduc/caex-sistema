@@ -336,14 +336,13 @@ tela_selecionada = strl.sidebar.radio("Selecione a operação desejada:", opcoes
 
 
 # =======================================================================
-# PARTE 6 E PARTE 7: PAINEL DE CONTROLE EXCLUSIVO MASTER (🛠️ C-PANEL)
+# PARTE 6: PAINEL DE CONTROLE EXCLUSIVO MASTER - FLUXO 1 (🛠️ C-PANEL)
 # =======================================================================
 
 if tela_selecionada == "🛠️ C-PANEL":
     strl.markdown("## 🛠️ C-PANEL - CENTRAL DE CONTROLE DO ADMINISTRADOR")
-    strl.markdown("Gerenciamento avançado de permissões de operadores, manutenção do sistema e atendimento de suporte.")
+    strl.markdown("Gerenciamento avançado de permissões de operadores, manutenção do sistema e suporte.")
     
-    # Restrição física absoluta de segurança na interface
     if strl.session_state["usuario_login"] != "3":
         strl.error("⚠️ ACESSO NEGADO: Esta área é restrita à conta master da direção.")
         strl.stop()
@@ -353,7 +352,7 @@ if tela_selecionada == "🛠️ C-PANEL":
         df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
         
         # -----------------------------------------------------------------------
-        # PARTE 6: REQUERIMENTOS DE MUDANÇA DE NÍVEL (FLUXO 1)
+        # FLUXO 1: REQUERIMENTOS DE MUDANÇA DE NÍVEL
         # -----------------------------------------------------------------------
         pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
         
@@ -379,10 +378,9 @@ if tela_selecionada == "🛠️ C-PANEL":
                         col_btn1, col_btn2 = strl.columns([0.2, 0.8])
                         
                         if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()[0]}", key=f"aprov_cp_{idx}"):
-                            with strl.spinner("Aplicando elevação no Excel..."):
+                            with strl.spinner("Aplicando elevação..."):
                                 df_user_master = pd.read_excel(ARQUIVO_EXCEL, sheet_name="USER")
                                 df_user_master.columns = [str(c).strip().upper() for c in df_user_master.columns]
-                                
                                 col_nivel_ref = "NÍVEL" if "NÍVEL" in df_user_master.columns else "NIVEL"
                                 filtro_mudar = df_user_master["NOME"].astype(str).str.upper().str.strip() == funcionario_pedinte
                                 
@@ -390,7 +388,6 @@ if tela_selecionada == "🛠️ C-PANEL":
                                     df_user_master.loc[filtro_mudar, col_nivel_ref] = int(nivel_pedido)
                                     with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
                                         df_user_master.to_excel(writer, sheet_name="USER", index=False)
-                                        
                                     registrar_log_auditoria("ROBSON TEIXEIRA", f"APROVOU VIA C-PANEL O FUNCIONÁRIO {funcionario_pedinte} PARA O NÍVEL {nivel_pedido}")
                                     strl.success(f"Nível de {funcionario_pedinte} atualizado!")
                                     strl.cache_data.clear()
@@ -403,10 +400,23 @@ if tela_selecionada == "🛠️ C-PANEL":
                             strl.info("Solicitação arquivada.")
                             strl.rerun()
             strl.markdown("---")
-            
-        # -----------------------------------------------------------------------
-        # PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (FLUXO 2)
-        # -----------------------------------------------------------------------
+    except Exception as e_cp_f1:
+        strl.error(f"Erro na varredura do C-PANEL Fluxo 1: {e_cp_f1}")
+
+
+# =======================================================================
+# PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (🛠️ C-PANEL)
+# =======================================================================
+
+# CORREÇÃO CRÍTICA DO ERRO DE TELA: Convertido de 'if' isolado para 'elif'
+# para fechar a árvore lógica corretamente alinhada com as próximas seções.
+
+elif tela_selecionada == "🛠️ C-PANEL":
+    try:
+        # Carrega os dados de log de forma dedicada para evitar conflitos de variáveis locais
+        df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
+        df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
+        
         chamados_abertos = df_log_check[df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)]
         
         strl.markdown("#### 🛠️ MURAL DE CHAMADOS TÉCNICOS E SITUAÇÕES ADVERSAS")
@@ -450,6 +460,7 @@ if tela_selecionada == "🛠️ C-PANEL":
             
     except Exception as e_cp_global:
         strl.error(f"Erro na varredura analítica do C-PANEL: {e_cp_global}")
+
 
 
 # =======================================================================
