@@ -336,7 +336,7 @@ tela_selecionada = strl.sidebar.radio("Selecione a operação desejada:", opcoes
 
 
 # =======================================================================
-# PARTE 6: PAINEL DE CONTROLE EXCLUSIVO MASTER - FLUXO 1 (🛠️ C-PANEL)
+# PARTE 6: PAINEL DE CONTROLE EXCLUSIVO MASTER (🛠️ C-PANEL)
 # =======================================================================
 
 if tela_selecionada == "🛠️ C-PANEL":
@@ -352,9 +352,6 @@ if tela_selecionada == "🛠️ C-PANEL":
         df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
         df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
         
-        # -----------------------------------------------------------------------
-        # FLUXO 1: REQUERIMENTOS DE MUDANÇA DE NÍVEL
-        # -----------------------------------------------------------------------
         pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
         
         if not pedidos_pendentes.empty:
@@ -403,24 +400,10 @@ if tela_selecionada == "🛠️ C-PANEL":
                             strl.info("Solicitação arquivada.")
                             strl.rerun()
             strl.markdown("---")
-    except Exception as e_cp_f1:
-        strl.error(f"Erro na varredura do C-PANEL Fluxo 1: {e_cp_f1}")
-
-
-
-
-# =======================================================================
-# PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (🛠️ C-PANEL)
-# =======================================================================
-
-# ATENÇÃO: Compartilha a abertura condicional iniciada no bloco anterior da Parte 6.
-# Este bloco foi corrigido com a indexação segura de strings para evitar quebra de listas.
-
-if tela_selecionada == "🛠️ C-PANEL":
-    try:
-        # -----------------------------------------------------------------------
-        # FLUXO 2: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE
-        # -----------------------------------------------------------------------
+            
+# -----------------------------------------------------------------------
+# PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE
+# -----------------------------------------------------------------------
         chamados_abertos = df_log_check[df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)]
         
         strl.markdown("#### 🛠️ MURAL DE CHAMADOS TÉCNICOS E SITUAÇÕES ADVERSAS")
@@ -434,6 +417,7 @@ if tela_selecionada == "🛠️ C-PANEL":
                 
                 partes_ch = texto_chamado.split("|")
                 if len(partes_ch) >= 5:
+                    # EXTRAÇÃO REFEITA: Captura os dados textuais da lista de strings de forma correta por índice [3]
                     cat_ch = partes_ch[1].replace("CATEGORIA:", "").strip()
                     imp_ch = partes_ch[2].replace("IMPACTO:", "").strip()
                     anexo_ch = partes_ch[3].replace("ANEXO:", "").strip()
