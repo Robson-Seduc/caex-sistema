@@ -499,15 +499,13 @@ if tela_selecionada == "🛠️ C-PANEL":
 # PARTE 8: 🏠 PAINEL INICIAL (Notificações Master, Busca e Estatísticas)
 # =======================================================================
 
-# CORREÇÃO DEFINITIVA DE MENU: Convertido de 'if' para um bloco independente,
-# garantindo que as Partes 9, 10 e 11 se alinhem perfeitamente na mesma árvore lógica.
-
 if tela_selecionada == "🏠 PAINEL INICIAL":
     if strl.session_state["usuario_login"] == "3":
         try:
             df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
             df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
             
+            # Alerta Tipo 1: Pedidos de Promoção de Nível
             pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
             if not pedidos_pendentes.empty:
                 pedidos_unicos = pedidos_pendentes.drop_duplicates(subset=["USUÁRIO /NOME"], keep="last")
@@ -527,7 +525,15 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                             *Instruções: Para avaliar ou aprovar, acesse a aba '🛠️ C-PANEL' no menu lateral.*
                         """)
                         
-          chamados_pendentes = df_log_check[(df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)) & (df_log_check.get("STATUS", "ABERTO") == "ABERTO")]
+            # CORREÇÃO CRÍTICA: Busca os chamados considerando se a coluna STATUS é igual a ABERTO de forma alinhada
+            if "STATUS" in df_log_check.columns:
+                chamados_pendentes = df_log_check[
+                    (df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)) & 
+                    (df_log_check["STATUS"].astype(str).str.upper().str.strip() == "ABERTO")
+                ]
+            else:
+                chamados_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)]
+                
             if not chamados_pendentes.empty:
                 chamados_unicos = chamados_pendentes.drop_duplicates(subset=["DATA", "USUÁRIO /NOME"], keep="last")
                 for idx_ch, linha_chamado in chamados_unicos.iterrows():
@@ -573,13 +579,13 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                 selecao = strl.dataframe(tabela_ordenada, width="stretch", hide_index=True, selection_mode="single-row", on_select="rerun")
                 
                 if selecao and "selection" in selecao and selecao["selection"].get("rows"):
-                    idx_linha_selecionada = selecao["selection"]["rows"][0]
+                    idx_linha_selecionada = selecao["selection"]["rows"]
                     nome_aluno_selecionado = tabela_ordenada.iloc[idx_linha_selecionada]["NOME DO ALUNO"]
                     dados_originais_aluno = resultado_filtro[resultado_filtro["NOME DO ALUNO(A)"] == nome_aluno_selecionado]
                     
                     if not dados_originais_aluno.empty:
-                        indice_real_excel = dados_originais_aluno.index[0]
-                        aluno_row_data = dados_originais_aluno.iloc[0]
+                        indice_real_excel = dados_originais_aluno.index
+                        aluno_row_data = dados_originais_aluno.iloc
                         
                         @strl.dialog("✏️ ALTERAR DADOS DO ALUNO")
                         def popup_editar_aluno(index_linha, dados_aluno):
@@ -639,12 +645,6 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                 
             strl.markdown("---")
             strl.markdown("##### 🏆 TOP 5 - MAIOR VOLUME DE ALUNOS")
-            top_escolas = df_dados["UNIDADE ESCOLAR"].value_counts().head(5)
-            for i, (escola, qtd) in enumerate(top_escolas.items(), 1):
-                strl.write(f"**{i}. {escola}** ({qtd} alunos)")
-        else:
-            strl.error("DADOS INDISPONÍVEIS.")
-
 
 
 
