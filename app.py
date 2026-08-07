@@ -84,8 +84,10 @@ def registrar_log_auditoria(nome_funcionario, acao_realizada):
         pass
 
 # -----------------------------------------------------------------------
-# ENGINE DE LEITURA DO ACERVO: Carrega as 27 mil linhas tratadas em CAIXA ALTA
+# ENGINE DE LEITURA DO ACERVO: Armazena as 27 mil linhas na memória RAM
+# Otimização de Performance: TTL de 10 minutos evita leituras físicas no HD
 # -----------------------------------------------------------------------
+@strl.cache_data(ttl=600)
 def carregar_dados_bd():
     try:
         df = pd.read_excel(ARQUIVO_EXCEL, sheet_name="BD")
@@ -98,6 +100,7 @@ def carregar_dados_bd():
         strl.error(f"ERRO CRÍTICO AO LER BANCO DE DADOS (ABA BD): {e}")
         return pd.DataFrame()
 
+@strl.cache_data(ttl=600)
 def carregar_lista_escolas():
     try:
         df = pd.read_excel(ARQUIVO_EXCEL, sheet_name="ESCOLAS")
@@ -115,7 +118,7 @@ def carregar_lista_escolas():
     except:
         return []
 
-# Ativa o banco de dados principal na memória
+# Ativa o banco de dados principal de alta velocidade na memória cache
 df_dados = carregar_dados_bd()
 
 # Desenha o cabeçalho identitário azul
@@ -364,8 +367,8 @@ if tela_selecionada == "🛠️ C-PANEL":
                 
                 partes_pedido = detalhes_acao.split("|")
                 if len(partes_pedido) >= 3:
-                    nivel_pedido = partes_pedido.replace("NÍVEL SOLICITADO:", "").strip()
-                    justificativa_pedido = partes_pedido.replace("JUSTIFICATIVA:", "").strip()
+                    nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
+                    justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
                     
                     with strl.container(border=True):
                         strl.markdown(f"👤 **Funcionário:** {funcionario_pedinte} | 📅 **Solicitado em:** {data_pedido}")
@@ -374,7 +377,7 @@ if tela_selecionada == "🛠️ C-PANEL":
                         
                         col_btn1, col_btn2 = strl.columns([0.2, 0.8])
                         
-                        if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()}", key=f"aprov_cp_{idx}"):
+                        if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()[0]}", key=f"aprov_cp_{idx}"):
                             with strl.spinner("Aplicando elevação no Excel..."):
                                 df_user_master = pd.read_excel(ARQUIVO_EXCEL, sheet_name="USER")
                                 df_user_master.columns = [str(c).strip().upper() for c in df_user_master.columns]
@@ -403,6 +406,7 @@ if tela_selecionada == "🛠️ C-PANEL":
         strl.error(f"Erro na varredura do C-PANEL Fluxo 1: {e_cp_f1}")
 
 
+
 # =======================================================================
 # PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (🛠️ C-PANEL)
 # =======================================================================
@@ -428,10 +432,11 @@ if tela_selecionada == "🛠️ C-PANEL":
                 # Particiona a string estruturada gerada na Parte 11
                 partes_ch = texto_chamado.split("|")
                 if len(partes_ch) >= 5:
-                    cat_ch = partes_ch.replace("CATEGORIA:", "").strip()
-                    imp_ch = partes_ch.replace("IMPACTO:", "").strip()
-                    anexo_ch = partes_ch.replace("ANEXO:", "").strip()
-                    detalhes_ch = partes_ch.replace("DETALHES:", "").strip()
+                    # CORREÇÃO CRÍTICA: Tratamento feito acessando os elementos corretos da lista por índice
+                    cat_ch = partes_ch[1].replace("CATEGORIA:", "").strip()
+                    imp_ch = partes_ch[2].replace("IMPACTO:", "").strip()
+                    anexo_ch = partes_ch[3].replace("ANEXO:", "").strip()
+                    detalhes_ch = partes_ch[4].replace("DETALHES:", "").strip()
                     
                     with strl.container(border=True):
                         strl.error(f"🚨 **Chamado Técnico Ativo - {data_chamado}**")
@@ -462,6 +467,7 @@ if tela_selecionada == "🛠️ C-PANEL":
         strl.error(f"Erro na varredura analítica do C-PANEL: {e_cp_global}")
 
 
+
 # =======================================================================
 # PARTE 8: 🏠 PAINEL INICIAL (Notificações Master, Busca e Estatísticas)
 # =======================================================================
@@ -469,14 +475,14 @@ if tela_selecionada == "🛠️ C-PANEL":
 if tela_selecionada == "🏠 PAINEL INICIAL":
     
     # -----------------------------------------------------------------------
-    # CENTRAL DE NOTIFICAÇÕES: Alertas de Nível e Chamados Técnicos na Tela Inicial do Robson
+    # CENTRAL DE NOTIFICAÇÕES: Alertas de Nível e Chamados Técnicos na Tela Inicial
     # -----------------------------------------------------------------------
     if strl.session_state["usuario_login"] == "3":
         try:
             df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
             df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
             
-            # 🔔 ALERTA TIPO 1: Pedidos de Promoção de Nível
+            # Alerta Tipo 1: Pedidos de Promoção de Nível
             pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
             if not pedidos_pendentes.empty:
                 pedidos_unicos = pedidos_pendentes.drop_duplicates(subset=["USUÁRIO /NOME"], keep="last")
@@ -493,7 +499,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                             *Instruções: Para avaliar ou aprovar, acesse a aba '🛠️ C-PANEL' no menu lateral.*
                         """)
                         
-            # 🚨 ALERTA TIPO 2: Novos Chamados Técnicos de Operadores
+            # Alerta Tipo 2: Novos Chamados Técnicos de Operadores
             chamados_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)]
             if not chamados_pendentes.empty:
                 chamados_unicos = chamados_pendentes.drop_duplicates(subset=["DATA", "USUÁRIO /NOME"], keep="last")
@@ -507,16 +513,15 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                         strl.error(f"""
                             🚨 **NOVO CHAMADO DE SUPORTE OPERACIONAL DETECTADO ({data_chamado})**  
                             O operador **{operador_pedinte}** reportou uma situação adversa na categoria: **{cat_critica}**.  
-                            *Instruções: Para ler o relatório do erro, visualizar o print de tela anexado e encerrar o ticket, abra a aba '🛠️ C-PANEL'.*
+                            *Instruções: Para ler o relatório do erro, abrir o anexo e encerrar o ticket, abra a aba '🛠️ C-PANEL'.*
                         """)
             
-            # Divisor visual dinâmico caso haja qualquer notificação ativa no cockpit
             if not pedidos_pendentes.empty or not chamados_pendentes.empty:
                 strl.markdown("---")
         except:
             pass
 
-    # Fluxo normal da busca rápida e indicadores do Painel Inicial
+    # Fluxo normal da busca rápida otimizada por memória cache
     col_esquerda, col_direita = strl.columns([0.6, 0.4], gap="large")
 
     with col_esquerda:
@@ -576,6 +581,8 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                                 df_planilha.to_excel(writer, sheet_name="BD", index=False)
                                                 
                                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"ALTEROU CADASTRO DO ALUNO PARA: {ed_nome.strip().upper()}")
+                                            
+                                            # OTIMIZAÇÃO: Recarrega o cache para a busca refletir o dado alterado imediatamente
                                             strl.cache_data.clear()
                                             strl.success("Cadastro atualizado com sucesso!")
                                             strl.rerun()
@@ -609,7 +616,6 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
             for i, (escola, qtd) in enumerate(top_escolas.items(), 1):
                 strl.write(f"**{i}. {escola}** ({qtd} alunos)")
         else:
-            strl.error("DADOS INDISPONÍVEIS.")
 
 
 
@@ -641,10 +647,10 @@ elif tela_selecionada == "📝 NOVAS PASTAS":
                 with strl.spinner("💾 GRAVANDO NOVA ESCOLA NO ACERVO... POR FAVOR, AGUARDE..."):
                     try:
                         df_escolas = pd.read_excel(ARQUIVO_EXCEL, sheet_name="ESCOLAS")
-                        coluna_nome = df_escolas.columns
+                        coluna_nome = df_escolas.columns[0]
                         escola_final = p_nome.upper().strip()
                         
-                        existe = (df_escolas[coluna_nome].astype(str).str.upper().str.strip() == school_final).any() if 'school_final' in locals() else (df_escolas[coluna_nome].astype(str).str.upper().str.strip() == escola_final).any()
+                        existe = (df_escolas[coluna_nome].astype(str).str.upper().str.strip() == escola_final).any()
 
                         if not existe:
                             nova_linha = pd.DataFrame([{
@@ -659,6 +665,8 @@ elif tela_selecionada == "📝 NOVAS PASTAS":
                             
                             strl.session_state["escola_selecionada_atual"] = escola_final
                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU NOVA UNIDADE ESCOLAR: {escola_final}")
+                            
+                            # OTIMIZAÇÃO: Limpa cache para o menu suspenso ler a nova escola na hora
                             strl.cache_data.clear()
                             strl.success(f"Escola '{escola_final}' cadastrada com sucesso!")
                             strl.rerun()
@@ -694,7 +702,7 @@ elif tela_selecionada == "📝 NOVAS PASTAS":
         if salvar:
             escola_ativa = strl.session_state.get("escola_selecionada_atual", "--- SELECIONE ---")
             
-            if escola_ativa in ["--- SELECIONE ---", "➕ CADASTRAR NOVA ESCOLA"]:
+            if ... or escola_ativa in ["--- SELECIONE ---", "➕ CADASTRAR NOVA ESCOLA"]:
                 strl.error("Por favor, selecione uma Unidade Escolar válida na listagem superior.")
             elif nome_aluno.strip() == "" or numero_pasta.strip() == "" or caixa_arquivo.strip() == "":
                 strl.error("Todos os campos do aluno são obrigatórios.")
@@ -716,12 +724,13 @@ elif tela_selecionada == "📝 NOVAS PASTAS":
 
                         strl.session_state["escola_selecionada_atual"] = "--- SELECIONE ---"
                         registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU O ALUNO: {nome_aluno.upper().strip()} NA PASTA: {numero_pasta.upper().strip()}")
+                        
+                        # OTIMIZAÇÃO: Invalida o cache antigo para que o novo aluno apareça na busca inicial imediatamente
                         strl.cache_data.clear()
                         strl.success(f"Cadastro realizado com sucesso!\n\nAluno: {nome_aluno.upper()}\nEscola: {escola_ativa.upper()}")
                         strl.rerun()
                     except Exception as erro:
                         strl.error(f"Erro ao gravar os dados do aluno:\n\n{erro}")
-
 
 
 
@@ -838,11 +847,14 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                         mensagem_chamado_log = f"CHAMADO_SUPORTE | CATEGORIA: {categoria_problema} | IMPACTO: {impacto_trabalho.upper()} | ANEXO: {nome_arquivo_salvo} | DETALHES: {descricao_detalhada.upper().strip()}"
                         
                         registrar_log_auditoria(strl.session_state["usuario_nome"], mensagem_chamado_log)
-                        strl.success("✅ CHAMADO REGISTRADO COM SUCESSO! O Administrador Master foi notificado e avaliará a situação técnico-operacional.")
-                        strl.balloons()
+                        
+                        # MODIFICAÇÃO: Redireciona o usuário para o Painel Inicial limpando os balões anteriores
+                        strl.toast("✅ Chamado registrado com sucesso!", icon="📥")
+                        strl.rerun()
                         
                     except Exception as e_chamado:
                         strl.error(f"Erro crítico ao processar o envio do chamado técnico: {e_chamado}")
+
 
 
 
