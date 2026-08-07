@@ -408,7 +408,11 @@ if tela_selecionada == "🛠️ C-PANEL":
 # PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (🛠️ C-PANEL)
 # =======================================================================
 
-elif tela_selecionada == "🛠️ C-PANEL":
+# MUDANÇA CRÍTICA: Em vez de usar 'elif', removemos a dependência do bloco de cima.
+# Agora o bloco roda de forma paralela e independente dentro da mesma condicional 'if' principal,
+# impedindo que erros internos de try/except empurrem recuos inválidos para as Partes 9, 10 e 11.
+
+if tela_selecionada == "🛠️ C-PANEL":
     try:
         df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
         df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
@@ -426,10 +430,8 @@ elif tela_selecionada == "🛠️ C-PANEL":
                 
                 partes_ch = texto_chamado.split("|")
                 if len(partes_ch) >= 5:
-                    # Inicializa as variáveis de texto limpas para cada chamado
                     cat_ch, imp_ch, anexo_ch, detalhes_ch = "", "", "", ""
                     
-                    # Varre a lista de forma segura tratando strings individualmente
                     for item in partes_ch:
                         item_up = item.upper().strip()
                         if "CATEGORIA:" in item_up:
@@ -466,6 +468,7 @@ elif tela_selecionada == "🛠️ C-PANEL":
             
     except Exception as e_cp_global:
         strl.error(f"Erro na varredura analítica do C-PANEL: {e_cp_global}")
+
 
 
 
