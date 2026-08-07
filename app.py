@@ -182,15 +182,11 @@ def popup_solicitar_cadastro():
 
 
 # =======================================================================
-# PARTE 3.1: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (VERSÃO COMPLETA)
+# PARTE 3.1: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (VERSÃO VIA LOG)
 # =======================================================================
 @strl.dialog("📈 REQUERIMENTO DE ELEVAÇÃO DE NÍVEL")
 def popup_pedir_elevacao():
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
-
-    strl.markdown("Sua justificativa será gravada para avaliação no e-mail master: **robson.teixeira@seduc.go.gov.br**")
+    strl.markdown("Preencha os dados da conta atual. Sua justificativa será registrada no LOG do sistema para avaliação imediata do Administrador Master.")
     e_user = strl.text_input("Informe seu E-mail de Usuário:").strip().upper()
     e_pass = strl.text_input("Confirme sua Senha Atual:", type="password").strip()
     e_nivel = strl.selectbox("Selecione o Nível Desejado:", ["2 - EDITOR (CONSULTA, EDIÇÃO E INSERÇÃO)", "3 - ADMINISTRADOR (TOTAL)"])
@@ -201,7 +197,7 @@ def popup_pedir_elevacao():
             strl.error("Todos os campos de validação e justificativa são obrigatórios!")
         else:
             try:
-                # 1. Validação das credenciais do funcionário no Excel
+                # Validação das credenciais do funcionário no Excel
                 df_usuarios = pd.read_excel(ARQUIVO_EXCEL, sheet_name="USER")
                 df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
                 col_user_real = "USUÁRIO" if "USUÁRIO" in df_usuarios.columns else "USUARIO"
@@ -213,54 +209,56 @@ def popup_pedir_elevacao():
                     nome_funcionario = str(user_encontrado.iloc[0]["NOME"]).upper()
                     nivel_alvo = e_nivel[:1]
                     
-                    # 2. Grava a ação no log interno do Excel
-                    registrar_log_auditoria(nome_funcionario, f"SOLICITOU ELEVAÇÃO PARA NÍVEL {nivel_alvo}. JUSTIFICATIVA: {e_just.upper()}")
+                    # Carimba a solicitação no LOG com uma tag padrão para o painel identificar depois
+                    mensagem_log_formatada = f"PEDIDO_PENDENTE | NÍVEL SOLICITADO: {nivel_alvo} | JUSTIFICATIVA: {e_just.upper()}"
+                    registrar_log_auditoria(nome_funcionario, mensagem_log_formatada)
                     
-                    # -----------------------------------------------------------------------
-                    # MOTOR OFICIAL DE ENVIO DE E-MAIL (SMTP GMAIL CORPORATIVO)
-                    # -----------------------------------------------------------------------
-                    EMAIL_REMETENTE = "robson.teixeira@seduc.go.gov.br"
-                    SENHA_APP_GOOGLE = "ytotsxhsbplpyrlh" 
-                    
-                    msg = MIMEMultipart()
-                    msg['From'] = EMAIL_REMETENTE
-                    msg['To'] = "robson.teixeira@seduc.go.gov.br"
-                    msg['Subject'] = f"⚠️ ALERTA CAEX: PEDIDO DE PROMOÇÃO DE NÍVEL - {nome_funcionario}"
-                    
-                    corpo_email = f"""
-                    Olá {strl.session_state.get('usuario_nome', 'Robson') if 'strl' in locals() and hasattr(strl, 'session_state') and 'usuario_nome' in strl.session_state else 'Robson'},
-                    
-                    Um funcionário registrou um requerimento de alteração de privilégios no sistema CAEX Web.
-                    
-                    📋 DETALHES DO PEDIDO:
-                    • Funcionário: {nome_funcionario}
-                    • E-mail do Usuário: {e_user}
-                    • Nível Solicitado: NÍVEL {nivel_alvo}
-                    
-                    💬 JUSTIFICATIVA ENVIADA:
-                    "{e_just.upper()}"
-                    
-                    -----------------------------------------------------------------
-                    Instruções: Se estiver de acordo, acesse a aba 'USER' da sua planilha no Google Drive, altere o número do nível deste usuário para {nivel_alvo} e salve o arquivo.
-                    """
-                    msg.attach(MIMEText(corpo_email, 'plain', 'utf-8'))
-                    
-                    # Abre o túnel seguro com o Gmail para fazer a postagem da mensagem
-                    with strl.spinner("✉️ ENVIANDO REQUERIMENTO PARA O DIRETOR MASTER..."):
-                        # AJUSTE TÉCNICO: Forçado o endereço SMTP correto e sem caracteres de protocolo
-                        server = smtplib.SMTP('://gmail.com', 587)
-                        server.starttls()
-                        server.login(EMAIL_REMETENTE, SENHA_APP_GOOGLE)
-                        server.sendmail(EMAIL_REMETENTE, msg['To'], msg.as_string())
-                        server.quit()
-                        
-                    strl.success("✅ Pedido enviado com sucesso! A notificação foi protocolada no LOG e enviada para o e-mail do Diretor Robson.")
+                    strl.success("✅ REQUERIMENTO PROTOCOLADO COM SUCESSO! O pedido foi enviado para o painel de avaliação do Diretor Robson.")
+                    strl.rerun()
                 else:
                     strl.error("Credenciais inválidas. Verifique seu e-mail e senha atual.")
-            except Exception as e_e:
-                strl.error(f"Erro ao processar requisição de envio: {e_e}")
+            except Exception as err_envio:
+                strl.error(f"Erro ao processar requisição: {err_envio}")
+# =======================================================================
+# PARTE 3.2: PAINEL CENTRAL (BUSCA RÁPIDA, DASHBOARD E CENTRAL DE NOTIFICAÇÕES)
+# =======================================================================
+if tela_selecionada == "🔍 PAINEL CENTRAL":
+    
+    # -----------------------------------------------------------------------
+    # CENTRAL DE ALERTAS MASTER: Mostra notificações se o usuário for o Robson (Nível 3)
+    # -----------------------------------------------------------------------
+    if strl.session_state["usuario_login"] == "3":
+        try:
+            df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
+            df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
+            
+            # Filtra na tabela LOG se existem linhas contendo a tag de pedido pendente
+            pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
+            
+            if not pedidos_pendentes.empty:
+                for idx, linha_pedido in pedidos_pendentes.iterrows():
+                    funcionario_pedinte = linha_pedido["USUÁRIO /NOME"]
+                    detalhes_acao = linha_pedido["AÇÃO"]
+                    data_pedido = linha_pedido["DATA"]
+                    
+                    # Divide o texto do log para extrair a justificativa limpa
+                    partes_pedido = detalhes_acao.split("|")
+                    nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
+                    justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
+                    
+                    # Renderiza o Card de Notificação Amarelo Alerta na sua tela principal
+                    strl.warning(f"""
+                        ⚠️ **SOLICITAÇÃO DE PROMOÇÃO DETECTADA ({data_pedido})**  
+                        • **Funcionário:** {funcionario_pedinte}  
+                        • **Nível Solicitado:** NÍVEL {nivel_pedido}  
+                        • **Justificativa:** "{justificativa_pedido}"  
+                        *Instruções: Para aprovar, abra a aba 'USER' do Excel, altere o nível deste funcionário e salve o arquivo.*
+                    """)
+        except:
+            pass
 
-
+    # Segue o fluxo normal das colunas de busca do Painel Central
+    col_esquerda, col_direita = strl.columns([0.6, 0.4], gap="large")
 
 
 # =======================================================================
