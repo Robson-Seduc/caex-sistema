@@ -256,7 +256,6 @@ if not strl.session_state["autenticado"]:
         
         if u_clean == "" or s_clean == "":
             strl.error("❌ POR FAVOR, PREENCHA OS CAMPOS DE USUÁRIO E SENHA!")
-        # 1. VALIDAÇÃO PRIORITÁRIA DA CONTA MASTER DO DIRETOR
         elif u_clean == USUARIO_MASTER and s_clean == SENHA_MASTER:
             strl.session_state["autenticado"] = True
             strl.session_state["usuario_nome"] = "ROBSON TEIXEIRA"
@@ -264,7 +263,6 @@ if not strl.session_state["autenticado"]:
             strl.session_state["usuario_login"] = "3"
             registrar_log_auditoria("ROBSON TEIXEIRA", "REALIZOU LOGIN VIA CONTA MASTER INTERNA")
             strl.rerun()
-        # 2. VALIDAÇÃO DAS DEMAIS CONTAS ARMAZENADAS NA PLANILHA
         else:
             try:
                 df_usuarios = pd.read_excel(ARQUIVO_EXCEL, sheet_name="USER")
@@ -279,7 +277,6 @@ if not strl.session_state["autenticado"]:
                 usuario_valido = df_usuarios[filtro_user]
                 
                 if not usuario_valido.empty:
-                    # Coleta segura dos valores textuais da linha encontrada
                     nome_real = str(usuario_valido["NOME"].values[0]).upper().strip()
                     nivel_acesso = str(usuario_valido[col_nivel_real].values[0]).strip()
                     
@@ -319,11 +316,9 @@ strl.sidebar.markdown("## 🧭 MENU CAEX")
 
 opcoes_menu_disponiveis = ["🏠 PAINEL INICIAL"]
 
-# Libera o painel de modulação administrativa unicamente para a conta Master do Robson
 if strl.session_state["usuario_login"] == "3":
-    options_menu_available = opcoes_menu_disponiveis.append("🛠️ C-PANEL")
+    opcoes_menu_disponiveis.append("🛠️ C-PANEL")
 
-# MODIFICAÇÃO: Insere a opção de abrir chamados exclusivamente para operadores Nível 1 e Nível 2
 if strl.session_state["usuario_login"] in ["1", "2"]:
     opcoes_menu_disponiveis.append("⚠️ ABRIR CHAMADO")
 
@@ -331,7 +326,21 @@ if strl.session_state["usuario_login"] in ["2", "3"]:
     opcoes_menu_disponiveis.append("📝 NOVAS PASTAS")
 
 opcoes_menu_disponiveis.append("📥 EXPORTAR DADOS")
-tela_selecionada = strl.sidebar.radio("Selecione a operação desejada:", opcoes_menu_disponiveis)
+
+# CORREÇÃO CRÍTICA DO MENU: Mecanismo que intercepta o redirecionamento automático
+# Se o formulário ativou a flag de sucesso, forçamos o índice padrão a apontar para "🏠 PAINEL INICIAL" (posição 0)
+index_menu_padrao = 0
+if "chamado_sucesso" in strl.session_state and strl.session_state["chamado_sucesso"] == True:
+    index_menu_padrao = 0
+elif "tela_selecionada" in strl.session_state and strl.session_state["tela_selecionada"] in opcoes_menu_disponiveis:
+    index_menu_padrao = opcoes_menu_disponiveis.index(strl.session_state["tela_selecionada"])
+
+tela_selecionada = strl.sidebar.radio(
+    "Selecione a operação desejada:", 
+    opcoes_menu_disponiveis, 
+    index=index_menu_padrao,
+    key="tela_selecionada"
+)
 
 
 # =======================================================================
@@ -859,6 +868,9 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
             if categoria_problema == "--- SELECIONE UMA OPÇÃO ---" or not descricao_detalhada.strip():
                 strl.error("❌ ERRO: Você deve selecionar uma categoria válida e descrever o problema antes de enviar.")
             else:
+                # Reseta qualquer flag de sucesso antiga antes do processamento
+                strl.session_state["chamado_sucesso"] = False
+                
                 with strl.spinner("Registrando seu chamado técnico no acervo..."):
                     try:
                         nome_arquivo_salvo = "NENHUM ANEXO ENVIADO"
@@ -893,14 +905,18 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                         with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
                             df_log_novo.to_excel(writer, sheet_name="LOG", index=False)
                         
-                        # Alerta flutuante profissional de confirmação antes de redirecionar
-                        strl.toast("✅ Chamado registrado com sucesso!", icon="📥")
-                        
-                        # CORREÇÃO DEFINITIVA: Força a atualização da variável exata escutada pelo menu lateral
+                        # CORREÇÃO DEFINITIVA DO REDIRECIONAMENTO: Ativa as chaves de controle de estado
+                        strl.session_state["chamado_sucesso"] = True
                         strl.session_state["tela_selecionada"] = "🏠 PAINEL INICIAL"
                         strl.rerun()
                         
                     except Exception as e_chamado:
                         strl.error(f"Erro crítico ao processar o envio do chamado técnico: {e_chamado}")
+
+# Bloco ouvinte que roda fora do form: Se a flag for verdadeira, dispara o toast profissional na tela inicial
+if "chamado_sucesso" in strl.session_state and strl.session_state["chamado_sucesso"] == True:
+    strl.toast("✅ Chamado registrado com sucesso!", icon="📥")
+    # Desliga a flag para o toast não reaparecer nos próximos cliques normais de busca
+    strl.session_state["chamado_sucesso"] = False
 
 
