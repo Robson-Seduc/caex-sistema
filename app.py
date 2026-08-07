@@ -418,19 +418,24 @@ if tela_selecionada == "🛠️ C-PANEL":
 # PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (🛠️ C-PANEL)
 # =======================================================================
 
-# Executa de forma isolada sob a mesma condicional do menu administrativo
 if tela_selecionada == "🛠️ C-PANEL":
     try:
         df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
         df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
         
-        # -----------------------------------------------------------------------
-        # FLUXO 2: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE
-        # -----------------------------------------------------------------------
-        chamados_abertos = df_log_check[df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)]
+        # Garante a existência da coluna STATUS de controle para evitar quebras de leitura
+        if "STATUS" not in df_log_check.columns:
+            df_log_check["STATUS"] = "ABERTO"
+        
+        # Filtra apenas os logs que possuem chamados técnicos e que ainda estão com o STATUS igual a ABERTO
+        chamados_abertos = df_log_check[
+            (df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)) & 
+            (df_log_check["STATUS"].astype(str).str.upper().str.strip() == "ABERTO")
+        ]
         
         strl.markdown("#### 🛠️ MURAL DE CHAMADOS TÉCNICOS E SITUAÇÕES ADVERSAS")
         if not chamados_abertos.empty:
+            # Mantém a listagem limpa focando na última manifestação ativa por data
             chamados_unicos = chamados_abertos.drop_duplicates(subset=["DATA", "USUÁRIO /NOME"], keep="last")
             
             for idx_ch, linha_chamado in chamados_unicos.iterrows():
@@ -442,7 +447,6 @@ if tela_selecionada == "🛠️ C-PANEL":
                 if len(partes_ch) >= 5:
                     cat_ch, imp_ch, anexo_ch, detalhes_ch = "", "", "", ""
                     
-                    # CORREÇÃO CRÍTICA: Varre a lista limpando as strings de forma segura por iteração
                     for item in partes_ch:
                         item_up = item.upper().strip()
                         if "CATEGORIA:" in item_up:
@@ -469,16 +473,26 @@ if tela_selecionada == "🛠️ C-PANEL":
                             
                         col_ch1, col_ch2 = strl.columns([0.2, 0.8])
                         
+                        # CORREÇÃO CRÍTICA: Altera diretamente a célula da linha correta no Excel para dar baixa real
                         if col_ch1.button(f"🏁 Concluir Atendimento", key=f"Resolv_{idx_ch}"):
-                            texto_resolvido = f"RESOLVIDO_SUPORTE | O MASTER ENCERROU O CHAMADO DE {operador_chamado} ABERTO EM {data_chamado}"
-                            registrar_log_auditoria("ROBSON TEIXEIRA", texto_resolvido)
-                            strl.success("Chamado marcado como resolvido e retirado da fila!")
-                            strl.rerun()
+                            with strl.spinner("Dando baixa no chamado técnico..."):
+                                df_planilha_log = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
+                                
+                                # Localiza a linha correta combinando o índice original do loop do pandas
+                                df_planilha_log.at[idx_ch, "STATUS"] = "CONCLUÍDO"
+                                
+                                with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+                                    df_planilha_log.to_excel(writer, sheet_name="LOG", index=False)
+                                
+                                registrar_log_auditoria("ROBSON TEIXEIRA", f"ENCERROU O ATENDIMENTO DO CHAMADO DE {operador_chamado} REGISTRADO EM {data_chamado}")
+                                strl.toast("✅ Chamado arquivado com sucesso!", icon="🏁")
+                                strl.rerun()
         else:
             strl.success("✅ Excelente! Nenhum chamado operacional pendente de suporte técnico.")
             
     except Exception as e_cp_global:
         strl.error(f"Erro na varredura analítica do C-PANEL: {e_cp_global}")
+
 
 
 # =======================================================================
@@ -513,7 +527,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                             *Instruções: Para avaliar ou aprovar, acesse a aba '🛠️ C-PANEL' no menu lateral.*
                         """)
                         
-            chamados_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)]
+          chamados_pendentes = df_log_check[(df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)) & (df_log_check.get("STATUS", "ABERTO") == "ABERTO")]
             if not chamados_pendentes.empty:
                 chamados_unicos = chamados_pendentes.drop_duplicates(subset=["DATA", "USUÁRIO /NOME"], keep="last")
                 for idx_ch, linha_chamado in chamados_unicos.iterrows():
@@ -813,7 +827,7 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                 "ERRO NA BUSCA (O aluno existe na folha física, mas não aparece na busca)",
                 "ERRO AO SALVAR DADOS (O sistema trava ou mostra erro vermelho ao cadastrar nova pasta)",
                 "INCONSISTÊNCIA NA PLANILHA (Nomes trocados, números de pastas errados ou duplicados)",
-                "LENTIDÃO CRÍTICA (A tabela demora muito para carregar ou atualizar)",
+                "LENTIDão CRÍTICA (A tabela demora muito para carregar ou atualizar)",
                 "OUTRO PROBLEMA TÉCNICO"
             ]
         )
@@ -860,10 +874,31 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                                 f_anexo.write(imagem_anexada.getbuffer())
                         
                         mensagem_chamado_log = f"CHAMADO_SUPORTE | CATEGORIA: {categoria_problema} | IMPACTO: {impacto_trabalho.upper()} | ANEXO: {nome_arquivo_salvo} | DETALHES: {descricao_detalhada.upper().strip()}"
-                        registrar_log_auditoria(strl.session_state["usuario_nome"], mensagem_chamado_log)
+                        
+                        # CORREÇÃO CRÍTICA: Abre a planilha para gravar a nova linha inserindo explicitamente a flag 'ABERTO' na coluna STATUS
+                        df_log_atual = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
+                        
+                        nome_pc = socket.gethostname().upper()
+                        usuario_rede = getpass.getuser().upper()
+                        
+                        nova_linha_chamado = pd.DataFrame([{
+                            "DATA": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                            "PC": nome_pc,
+                            "REDE": usuario_rede,
+                            "USUÁRIO /NOME": str(strl.session_state["usuario_nome"]).upper().strip(),
+                            "AÇÃO": mensagem_chamado_log.upper().strip(),
+                            "STATUS": "ABERTO"  # Carimba o chamado como pendente na criação
+                        }])
+                        
+                        df_log_novo = pd.concat([df_log_atual, nova_linha_chamado], ignore_index=True)
+                        with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+                            df_log_novo.to_excel(writer, sheet_name="LOG", index=False)
                         
                         strl.toast("✅ Chamado registrado com sucesso!", icon="📥")
                         strl.rerun()
                         
                     except Exception as e_chamado:
                         strl.error(f"Erro crítico ao processar o envio do chamado técnico: {e_chamado}")
+
+
+
