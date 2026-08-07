@@ -341,8 +341,9 @@ tela_selecionada = strl.sidebar.radio("Selecione a operação desejada:", opcoes
 
 if tela_selecionada == "🛠️ C-PANEL":
     strl.markdown("## 🛠️ C-PANEL - CENTRAL DE CONTROLE DO ADMINISTRADOR")
-    strl.markdown("Gerenciamento avançado de permissões de operadores, manutenção do sistema e suporte.")
+    strl.markdown("Gerenciamento avançado de permissões de operadores, manutenção do sistema e atendimento de suporte.")
     
+    # Restrição física absoluta de segurança na interface
     if strl.session_state["usuario_login"] != "3":
         strl.error("⚠️ ACESSO NEGADO: Esta área é restrita à conta master da direção.")
         strl.stop()
@@ -367,8 +368,8 @@ if tela_selecionada == "🛠️ C-PANEL":
                 
                 partes_pedido = detalhes_acao.split("|")
                 if len(partes_pedido) >= 3:
-                    nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
-                    justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
+                    nivel_pedido = partes_pedido.replace("NÍVEL SOLICITADO:", "").strip()
+                    justificativa_pedido = partes_pedido.replace("JUSTIFICATIVA:", "").strip()
                     
                     with strl.container(border=True):
                         strl.markdown(f"👤 **Funcionário:** {funcionario_pedinte} | 📅 **Solicitado em:** {data_pedido}")
@@ -377,10 +378,11 @@ if tela_selecionada == "🛠️ C-PANEL":
                         
                         col_btn1, col_btn2 = strl.columns([0.2, 0.8])
                         
-                        if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()[0]}", key=f"aprov_cp_{idx}"):
-                            with strl.spinner("Aplicando elevação..."):
+                        if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()}", key=f"aprov_cp_{idx}"):
+                            with strl.spinner("Aplicando elevação no Excel..."):
                                 df_user_master = pd.read_excel(ARQUIVO_EXCEL, sheet_name="USER")
                                 df_user_master.columns = [str(c).strip().upper() for c in df_user_master.columns]
+                                
                                 col_nivel_ref = "NÍVEL" if "NÍVEL" in df_user_master.columns else "NIVEL"
                                 filtro_mudar = df_user_master["NOME"].astype(str).str.upper().str.strip() == funcionario_pedinte
                                 
@@ -388,6 +390,7 @@ if tela_selecionada == "🛠️ C-PANEL":
                                     df_user_master.loc[filtro_mudar, col_nivel_ref] = int(nivel_pedido)
                                     with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
                                         df_user_master.to_excel(writer, sheet_name="USER", index=False)
+                                        
                                     registrar_log_auditoria("ROBSON TEIXEIRA", f"APROVOU VIA C-PANEL O FUNCIONÁRIO {funcionario_pedinte} PARA O NÍVEL {nivel_pedido}")
                                     strl.success(f"Nível de {funcionario_pedinte} atualizado!")
                                     strl.cache_data.clear()
@@ -404,23 +407,23 @@ if tela_selecionada == "🛠️ C-PANEL":
         strl.error(f"Erro na varredura do C-PANEL Fluxo 1: {e_cp_f1}")
 
 
+
+
 # =======================================================================
 # PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (🛠️ C-PANEL)
 # =======================================================================
 
-# MUDANÇA CRÍTICA: Em vez de usar 'elif', removemos a dependência do bloco de cima.
-# Agora o bloco roda de forma paralela e independente dentro da mesma condicional 'if' principal,
-# impedindo que erros internos de try/except empurrem recuos inválidos para as Partes 9, 10 e 11.
-
+# Vinculado diretamente à condicional administrativa iniciada na parte 6
 if tela_selecionada == "🛠️ C-PANEL":
     try:
-        df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
-        df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
-        
+        # -----------------------------------------------------------------------
+        # FLUXO 2: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE
+        # -----------------------------------------------------------------------
         chamados_abertos = df_log_check[df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)]
         
         strl.markdown("#### 🛠️ MURAL DE CHAMADOS TÉCNICOS E SITUAÇÕES ADVERSAS")
         if not chamados_abertos.empty:
+            # Agrupa para focar nos registros ativos mais recentes por operador
             chamados_unicos = chamados_abertos.drop_duplicates(subset=["DATA", "USUÁRIO /NOME"], keep="last")
             
             for idx_ch, linha_chamado in chamados_unicos.iterrows():
@@ -428,20 +431,13 @@ if tela_selecionada == "🛠️ C-PANEL":
                 texto_chamado = str(linha_chamado["AÇÃO"])
                 data_chamado = linha_chamado["DATA"]
                 
+                # Particiona a string estruturada gerada na Parte 11
                 partes_ch = texto_chamado.split("|")
                 if len(partes_ch) >= 5:
-                    cat_ch, imp_ch, anexo_ch, detalhes_ch = "", "", "", ""
-                    
-                    for item in partes_ch:
-                        item_up = item.upper().strip()
-                        if "CATEGORIA:" in item_up:
-                            cat_ch = item_up.replace("CATEGORIA:", "").strip()
-                        elif "IMPACTO:" in item_up:
-                            imp_ch = item_up.replace("IMPACTO:", "").strip()
-                        elif "ANEXO:" in item_up:
-                            anexo_ch = item.strip().split("ANEXO:")[-1].strip()
-                        elif "DETALHES:" in item_up:
-                            detalhes_ch = item_up.replace("DETALHES:", "").strip()
+                    cat_ch = partes_ch.replace("CATEGORIA:", "").strip()
+                    imp_ch = partes_ch.replace("IMPACTO:", "").strip()
+                    anexo_ch = partes_ch.replace("ANEXO:", "").strip()
+                    detalhes_ch = partes_ch.replace("DETALHES:", "").strip()
                     
                     with strl.container(border=True):
                         strl.error(f"🚨 **Chamado Técnico Ativo - {data_chamado}**")
@@ -450,6 +446,7 @@ if tela_selecionada == "🛠️ C-PANEL":
                         strl.write(f"• **Nível de Impacto Relatado:** {imp_ch}")
                         strl.write(f"• **Relato da Situação:** \"{detalhes_ch}\"")
                         
+                        # Mecanismo de exibição inteligente de imagens anexadas pelo operador na nuvem
                         if anexo_ch != "NENHUM ANEXO ENVIADO" and os.path.exists(anexo_ch):
                             with strl.expander("🖼️ CLIQUE AQUI PARA VER A CAPTURA DE TELA DO ERRO"):
                                 strl.image(anexo_ch, caption=f"Evidência visual enviada por {operador_chamado}", use_container_width=True)
@@ -459,9 +456,10 @@ if tela_selecionada == "🛠️ C-PANEL":
                         col_ch1, col_ch2 = strl.columns([0.2, 0.8])
                         
                         if col_ch1.button(f"🏁 Concluir Atendimento", key=f"Resolv_{idx_ch}"):
+                            # Encerra o ticket carimbando a resolução no log, removendo a tag ativa 'CHAMADO_SUPORTE'
                             texto_resolvido = f"RESOLVIDO_SUPORTE | O MASTER ENCERROU O CHAMADO DE {operador_chamado} ABERTO EM {data_chamado}"
                             registrar_log_auditoria("ROBSON TEIXEIRA", texto_resolvido)
-                            strl.success("Chamado marcado como resolvido!")
+                            strl.success("Chamado marcado como resolvido e retirado da fila!")
                             strl.rerun()
         else:
             strl.success("✅ Excelente! Nenhum chamado operacional pendente de suporte técnico.")
