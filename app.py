@@ -426,10 +426,20 @@ elif tela_selecionada == "🛠️ C-PANEL":
                 
                 partes_ch = texto_chamado.split("|")
                 if len(partes_ch) >= 5:
-                    cat_ch = partes_ch[1].replace("CATEGORIA:", "").strip()
-                    imp_ch = partes_ch[2].replace("IMPACTO:", "").strip()
-                    anexo_ch = partes_ch[3].replace("ANEXO:", "").strip()
-                    detalhes_ch = partes_ch[4].replace("DETALHES:", "").strip()
+                    # Inicializa as variáveis de texto limpas para cada chamado
+                    cat_ch, imp_ch, anexo_ch, detalhes_ch = "", "", "", ""
+                    
+                    # Varre a lista de forma segura tratando strings individualmente
+                    for item in partes_ch:
+                        item_up = item.upper().strip()
+                        if "CATEGORIA:" in item_up:
+                            cat_ch = item_up.replace("CATEGORIA:", "").strip()
+                        elif "IMPACTO:" in item_up:
+                            imp_ch = item_up.replace("IMPACTO:", "").strip()
+                        elif "ANEXO:" in item_up:
+                            anexo_ch = item.strip().split("ANEXO:")[-1].strip()
+                        elif "DETALHES:" in item_up:
+                            detalhes_ch = item_up.replace("DETALHES:", "").strip()
                     
                     with strl.container(border=True):
                         strl.error(f"🚨 **Chamado Técnico Ativo - {data_chamado}**")
@@ -456,6 +466,7 @@ elif tela_selecionada == "🛠️ C-PANEL":
             
     except Exception as e_cp_global:
         strl.error(f"Erro na varredura analítica do C-PANEL: {e_cp_global}")
+
 
 
 
