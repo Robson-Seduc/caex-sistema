@@ -51,6 +51,7 @@ def realizar_backup_automatico():
 
 realizar_backup_automatico()
 
+
 # =======================================================================
 # PARTE 2: MOTORES DE AUDITORIA DE REDE E CARREGADORES DO BANCO DE DADOS
 # =======================================================================
@@ -129,6 +130,7 @@ strl.markdown(
     unsafe_allow_html=True
 )
 
+
 # =======================================================================
 # PARTE 3: FORMULÁRIOS FLUTUANTES (POP-UPS) DA TELA DE LOGIN
 # =======================================================================
@@ -180,10 +182,10 @@ def popup_solicitar_cadastro():
                     strl.error(f"Erro ao salvar cadastro: {e_c}")
 
 
+# =======================================================================
+# PARTE 4: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
+# =======================================================================
 
-# =======================================================================
-# PARTE 3.1: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
-# =======================================================================
 @strl.dialog("📈 REQUERIMENTO DE ELEVAÇÃO DE NÍVEL")
 def popup_pedir_elevacao():
     strl.markdown("Preencha os dados da conta atual. Sua justificativa será registrada no LOG do sistema para avaliação imediata do Administrador Master.")
@@ -213,7 +215,7 @@ def popup_pedir_elevacao():
                     mensagem_log_formatada = f"PEDIDO_PENDENTE | NÍVEL SOLICITADO: {nivel_alvo} | JUSTIFICATIVA: {e_just.upper()}"
                     registrar_log_auditoria(nome_funcionario, mensagem_log_formatada)
                     
-                    strl.success("✅ REQUERIMENTO PROTOCOLADO COM SUCESSO!")
+                    strl.success("✅ REQUERIMENTO PROTOCOLADO WITH SUCESSO!")
                     strl.rerun()
                 else:
                     strl.error("Credenciais inválidas. Verifique seu e-mail e senha atual.")
@@ -222,52 +224,12 @@ def popup_pedir_elevacao():
 
 
 
-# =======================================================================
-# PARTE 3.2: PAINEL CENTRAL (BUSCA RÁPIDA, DASHBOARD E CENTRAL DE NOTIFICAÇÕES)
-# =======================================================================
-if tela_selecionada == "🔍 PAINEL CENTRAL":
-    
-    # -----------------------------------------------------------------------
-    # CENTRAL DE ALERTAS MASTER: Mostra notificações se o usuário for o Robson (Nível 3)
-    # -----------------------------------------------------------------------
-    if strl.session_state["usuario_login"] == "3":
-        try:
-            df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
-            df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
-            
-            # Filtra na tabela LOG se existem linhas contendo a tag de pedido pendente
-            pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
-            
-            if not pedidos_pendentes.empty:
-                for idx, linha_pedido in pedidos_pendentes.iterrows():
-                    funcionario_pedinte = linha_pedido["USUÁRIO /NOME"]
-                    detalhes_acao = str(linha_pedido["AÇÃO"])
-                    data_pedido = linha_pedido["DATA"]
-                    
-                    # Processa o texto do log de forma segura usando split
-                    partes_pedido = detalhes_acao.split("|")
-                    if len(partes_pedido) >= 3:
-                        nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
-                        justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
-                        
-                        # Renderiza o Card de Notificação Amarelo Alerta na sua tela principal
-                        strl.warning(f"""
-                            ⚠️ **SOLICITAÇÃO DE PROMOÇÃO DETECTADA ({data_pedido})**  
-                            • **Funcionário:** {funcionario_pedinte}  
-                            • **Nível Solicitado:** NÍVEL {nivel_pedido}  
-                            • **Justificativa:** "{justificativa_pedido}"  
-                            *Instruções: Para aprovar, abra a aba 'USER' do Excel, altere o nível deste funcionário e salve o arquivo.*
-                        """)
-        except:
-            pass
-
-    # Segue o fluxo normal das colunas de busca do Painel Central
-    col_esquerda, col_direita = strl.columns([0.6, 0.4], gap="large")
-
 
 # =======================================================================
-# PARTE 4: INTERFACE GRÁFICA DE LOGIN, VALIDAÇÃO E MENUS DA BARRA LATERAL
+# PARTE 6: INTERFACE GRÁFICA DE LOGIN, VALIDAÇÃO E MENUS DA BARRA LATERAL
 # =======================================================================
+# ATENÇÃO: Esta interface foi movida estruturalmente para antes da Parte 5 e 7 
+# para resolver o erro 'NameError: name tela_selecionada is not defined'.
 
 if not strl.session_state["autenticado"]:
     strl.markdown("### 🔐 ACESSO RESTRITO - CONTROLE DE ACESSO")
@@ -362,15 +324,57 @@ opcoes_menu_disponiveis.append("📥 EXPORTAR DADOS")
 tela_selecionada = strl.sidebar.radio("Selecione a operação desejada:", opcoes_menu_disponiveis)
 
 
-# -----------------------------------------------------------------------
-# PARTE 5: 🔍 PAINEL CENTRAL (Busca, Estatísticas de A-Z e Edição Restrita)
-# -----------------------------------------------------------------------
+# =======================================================================
+# PARTE 5: PAINEL CENTRAL (BUSCA RÁPIDA, DASHBOARD E CENTRAL DE NOTIFICAÇÕES)
+# =======================================================================
+
+if tela_selecionada == "🔍 PAINEL CENTRAL":
+    
+    # -----------------------------------------------------------------------
+    # CENTRAL DE ALERTAS MASTER: Mostra notificações se o usuário for o Robson (Nível 3)
+    # -----------------------------------------------------------------------
+    if strl.session_state["usuario_login"] == "3":
+        try:
+            df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
+            df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
+            
+            # Filtra na tabela LOG se existem linhas contendo a tag de pedido pendente
+            pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
+            
+            if not pedidos_pendentes.empty:
+                for idx, linha_pedido in pedidos_pendentes.iterrows():
+                    funcionario_pedinte = linha_pedido["USUÁRIO /NOME"]
+                    detalhes_acao = str(linha_pedido["AÇÃO"])
+                    data_pedido = linha_pedido["DATA"]
+                    
+                    # Processa o texto do log de forma segura usando split
+                    partes_pedido = detalhes_acao.split("|")
+                    if len(partes_pedido) >= 3:
+                        nivel_pedido = partes_pedido[1].replace("NÍVEL SOLICITADO:", "").strip()
+                        justificativa_pedido = partes_pedido[2].replace("JUSTIFICATIVA:", "").strip()
+                        
+                        # Renderiza o Card de Notificação Amarelo Alerta na sua tela principal
+                        strl.warning(f"""
+                            ⚠️ **SOLICITAÇÃO DE PROMOÇÃO DETECTADA ({data_pedido})**  
+                            • **Funcionário:** {funcionario_pedinte}  
+                            • **Nível Solicitado:** NÍVEL {nivel_pedido}  
+                            • **Justificativa:** "{justificativa_pedido}"  
+                            *Instruções: Para aprovar, abra a aba 'USER' do Excel, altere o nível deste funcionário e salve o arquivo.*
+                        """)
+        except:
+            pass
+
+
+# =======================================================================
+# PARTE 7: 🔍 PAINEL CENTRAL (Busca, Estatísticas de A-Z e Edição Restrita)
+# =======================================================================
+
 if tela_selecionada == "🔍 PAINEL CENTRAL":
     col_esquerda, col_direita = strl.columns([0.6, 0.4], gap="large")
 
     with col_esquerda:
         strl.markdown("### 🔍 BUSCA RÁPIDA DE ALUNOS")
-        termo_busca = strl.text_input("Digite o Nome do Aluno (ou parte dele):", placeholder="[ DIGITE O NOME AQUI... ]")
+        termo_busca = strl.text_input("Digite o Nome do Aluno (or parte dele):", placeholder="[ DIGITE O NOME AQUI... ]")
         
         if termo_busca:
             termo_upper = termo_busca.strip().upper()
@@ -462,8 +466,9 @@ if tela_selecionada == "🔍 PAINEL CENTRAL":
 
 
 # =======================================================================
-# PARTE 6: 📝 NOVAS PASTAS (FORMULÁRIO DO ALUNO + POP-UP DINÂMICO DE ESCOLA)
+# PARTE 8: 📝 NOVAS PASTAS (FORMULÁRIO DO ALUNO + POP-UP DINÂMICO DE ESCOLA)
 # =======================================================================
+
 elif tela_selecionada == "📝 NOVAS PASTAS":
     strl.markdown("## 📝 CADASTRO DE NOVAS PASTAS")
     lista_escolas = carregar_lista_escolas()
@@ -491,7 +496,6 @@ elif tela_selecionada == "📝 NOVAS PASTAS":
                         coluna_nome = df_escolas.columns[0]
                         escola_final = p_nome.upper().strip()
                         
-                        # CORREÇÃO CRÍTICA DO BLOCO 6: Removido o termo 'school_final' para evitar travamento
                         existe = (df_escolas[coluna_nome].astype(str).str.upper().str.strip() == escola_final).any()
 
                         if not existe:
@@ -551,7 +555,7 @@ elif tela_selecionada == "📝 NOVAS PASTAS":
                     try:
                         df_bd = pd.read_excel(ARQUIVO_EXCEL, sheet_name="BD")
                         nova_linha_aluno = pd.DataFrame([{
-                            "UNIDADE ESCOLAR": escola_ativa.upper().strip(), 
+                            "UNIDADE ESCOLAR": school_active := escola_ativa.upper().strip(), 
                             "NOME DO ALUNO(A)": nome_aluno.upper().strip(), 
                             "Nº DA PASTA": numero_pasta.upper().strip(), 
                             "PASTA ARQUIVO": caixa_arquivo.upper().strip(), 
@@ -570,11 +574,10 @@ elif tela_selecionada == "📝 NOVAS PASTAS":
                         strl.error(f"Erro ao gravar os dados do aluno:\n\n{erro}")
 
 
-
-
 # =======================================================================
-# PARTE 7: 📥 EXPORTAR DADOS (DOWNLOAD RESTRITO EM EXCEL DE A-Z)
+# PARTE 9: 📥 EXPORTAR DADOS (DOWNLOAD RESTRITO EM EXCEL DE A-Z)
 # =======================================================================
+
 elif tela_selecionada == "📥 EXPORTAR DADOS":
     strl.markdown("## 📥 EXPORTAR DADOS POR ESCOLA")
     strl.markdown("Selecione uma instituição abaixo para gerar e baixar a planilha contendo a listagem completa de alunos.")
@@ -612,6 +615,3 @@ elif tela_selecionada == "📥 EXPORTAR DADOS":
                     strl.error(f"Erro ao gerar o arquivo de download: {e_export}")
             else:
                 strl.warning("Não existem alunos cadastrados para esta escola no momento.")
-
-
-
