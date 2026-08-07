@@ -408,12 +408,8 @@ if tela_selecionada == "🛠️ C-PANEL":
 # PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (🛠️ C-PANEL)
 # =======================================================================
 
-# CORREÇÃO CRÍTICA DO ERRO DE TELA: Convertido de 'if' isolado para 'elif'
-# para fechar a árvore lógica corretamente alinhada com as próximas seções.
-
 elif tela_selecionada == "🛠️ C-PANEL":
     try:
-        # Carrega os dados de log de forma dedicada para evitar conflitos de variáveis locais
         df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
         df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
         
