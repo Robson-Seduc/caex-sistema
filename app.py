@@ -629,7 +629,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                                 
                                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"ALTEROU CADASTRO DO ALUNO PARA: {ed_nome.strip().upper()}")
                                             strl.cache_data.clear()
-                                            strl.success("Cadastro updated com sucesso!")
+                                            strl.success("Cadastro atualizado com sucesso!")
                                             strl.rerun()
                                         except Exception as err:
                                             strl.error(f"Erro ao salvar edição: {err}")
@@ -654,7 +654,6 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                 strl.metric(label="🏷️ TOTAL DE ALUNOS CADASTRADOS", value=f"{total_alunos:,}".replace(",", "."))
             with card_col2:
                 strl.metric(label="🏫 ESCOLAS ATENDIDAS", value=total_escolas)
-
 
 # =======================================================================
 # PARTE 9: 📝 NOVAS PASTAS (FORMULÁRIO DO ALUNO + POP-UP DINÂMICO DE ESCOLA)
