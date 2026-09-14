@@ -17,7 +17,6 @@ strl.set_page_config(page_title="CAEX - Sistema Integrado", layout="wide", page_
 ARQUIVO_EXCEL = "Controle de Alunos Escolas Extintas - CAEX.xlsx"
 
 # CONFIGURAÇÃO INTERNA E FIXA DA CONTA MASTER DO DIRETOR
-USUARIO_MASTER = "ROBSON.TEIXEIRA@SEDUC.GO.GOV.BR"
 SENHA_MASTER = "Rs52846917Lm*"
 
 # -----------------------------------------------------------------------
@@ -598,48 +597,105 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                     if not dados_originais_aluno.empty:
                         indice_real_excel = dados_originais_aluno.index
                         aluno_row_data = dados_originais_aluno.iloc
-                        
-                        @strl.dialog("✏️ ALTERAR DADOS DO ALUNO")
-                        def popup_editar_aluno(index_linha, dados_aluno):
-                            strl.markdown(f"Alterando o cadastro de: **{dados_aluno['NOME DO ALUNO(A)']}**")
-                            ed_nome = strl.text_input("Nome do Aluno:", value=dados_aluno["NOME DO ALUNO(A)"])
-                            ed_escola = strl.text_input("Unidade Escolar (Apenas Visualização):", value=dados_aluno["UNIDADE ESCOLAR"], disabled=True)
+ 
+# =======================================================================
+# PARTE 8: 🏠 PAINEL INICIAL (BUSCA, EDIÇÃO E EXCLUSÃO NO PAINEL INICIAL)
+# =======================================================================
+if selecao and "selection" in selecao and selecao["selection"].get("rows"):
+    # 1. Extrai o índice numérico da linha selecionada na tabela
+    idx_posicao_tabela = selecao["selection"]["rows"]
+    nome_aluno_selecionado = tabela_ordenada.iloc[idx_posicao_tabela]["NOME DO ALUNO"]
+    
+    # 2. Localiza o registro original no DataFrame filtrado
+    dados_originais_aluno = resultado_filtro[resultado_filtro["NOME DO ALUNO(A)"] == nome_aluno_selecionado]
+    
+    if not dados_originais_aluno.empty:
+        # 3. CORREÇÃO: Extrai o índice escalar da planilha e a Series da linha do aluno usando 
+        indice_real_excel = dados_originais_aluno.index
+        aluno_row_data = dados_originais_aluno.iloc
+        
+        # --- FORMULÁRIO DE EDIÇÃO ---
+        @strl.dialog("✏️ ALTERAR DADOS DO ALUNO")
+        def popup_editar_aluno(index_linha, dados_aluno):
+            strl.markdown(f"Alterando o cadastro de: **{dados_aluno['NOME DO ALUNO(A)']}**")
+            ed_nome = strl.text_input("Nome do Aluno:", value=dados_aluno["NOME DO ALUNO(A)"])
+            ed_escola = strl.text_input("Unidade Escolar (Apenas Visualização):", value=dados_aluno["UNIDADE ESCOLAR"], disabled=True)
+            
+            ed_col1, ed_col2 = strl.columns(2)
+            with ed_col1:
+                ed_pasta = strl.text_input("Número da Pasta:", value=dados_aluno["Nº DA PASTA"])
+            with ed_col2:
+                ed_caixa = strl.text_input("Caixa Arquivo:", value=dados_aluno["PASTA ARQUIVO"])
+                
+            if strl.button("💾 Salvar Alterações", use_container_width=True):
+                if ed_nome.strip() == "" or ed_pasta.strip() == "" or ed_caixa.strip() == "":
+                    strl.error("Nenhum campo pode ficar em branco.")
+                else:
+                    with strl.spinner("💾 ATUALIZANDO BANCO DE DADOS..."):
+                        try:
+                            df_planilha = pd.read_excel(ARQUIVO_EXCEL, sheet_name="BD")
+                            df_planilha.at[index_linha, "NOME DO ALUNO(A)"] = ed_nome.strip().upper()
+                            df_planilha.at[index_linha, "Nº DA PASTA"] = ed_pasta.strip().upper()
+                            df_planilha.at[index_linha, "PASTA ARQUIVO"] = ed_caixa.strip().upper()
+                            df_planilha.at[index_linha, "ARQUIVO ORIGEM"] = "EDIÇÃO_MANUAL_WEB"
                             
-                            ed_col1, ed_col2 = strl.columns(2)
-                            with ed_col1:
-                                ed_pasta = strl.text_input("Número da Pasta:", value=dados_aluno["Nº DA PASTA"])
-                            with ed_col2:
-                                ed_caixa = strl.text_input("Caixa Arquivo:", value=dados_aluno["PASTA ARQUIVO"])
+                            with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+                                df_planilha.to_excel(writer, sheet_name="BD", index=False)
                                 
-                            btn_gravar_edicao = strl.button("💾 Salvar Alterações")
-                            if btn_gravar_edicao:
-                                if ed_nome.strip() == "" or ed_pasta.strip() == "" or ed_caixa.strip() == "":
-                                    strl.error("Nenhum campo pode ficar em branco.")
-                                else:
-                                    with strl.spinner("💾 ATUALIZANDO BANCO DE DADOS..."):
-                                        try:
-                                            df_planilha = pd.read_excel(ARQUIVO_EXCEL, sheet_name="BD")
-                                            df_planilha.at[index_linha, "NOME DO ALUNO(A)"] = ed_nome.strip().upper()
-                                            df_planilha.at[index_linha, "Nº DA PASTA"] = ed_pasta.strip().upper()
-                                            df_planilha.at[index_linha, "PASTA ARQUIVO"] = ed_caixa.strip().upper()
-                                            df_planilha.at[index_linha, "ARQUIVO ORIGEM"] = "EDIÇÃO_MANUAL_WEB"
-                                            
-                                            with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
-                                                df_planilha.to_excel(writer, sheet_name="BD", index=False)
-                                                
-                                            registrar_log_auditoria(strl.session_state["usuario_nome"], f"ALTEROU CADASTRO DO ALUNO PARA: {ed_nome.strip().upper()}")
-                                            strl.cache_data.clear()
-                                            strl.success("Cadastro atualizado com sucesso!")
-                                            strl.rerun()
-                                        except Exception as err:
-                                            strl.error(f"Erro ao salvar edição: {err}")
+                            registrar_log_auditoria(strl.session_state["usuario_nome"], f"ALTEROU CADASTRO DO ALUNO PARA: {ed_nome.strip().upper()}")
+                            strl.cache_data.clear()
+                            strl.success("Cadastro atualizado com sucesso!")
+                            strl.rerun()
+                        except Exception as err:
+                            strl.error(f"Erro ao salvar edição: {err}")
+
+        # --- FORMULÁRIO DE EXCLUSÃO ---
+        @strl.dialog("🗑️ EXCLUIR REGISTRO DO ALUNO")
+        def popup_excluir_aluno(index_linha, dados_aluno):
+            strl.warning("⚠️ **ATENÇÃO:** Esta ação removerá permanentemente o registro do acervo!")
+            strl.write(f"• **Aluno:** {dados_aluno['NOME DO ALUNO(A)']}")
+            strl.write(f"• **Escola:** {dados_aluno['UNIDADE ESCOLAR']}")
+            strl.write(f"• **Pasta:** {dados_aluno['Nº DA PASTA']} | **Caixa:** {dados_aluno['PASTA ARQUIVO']}")
+            
+            strl.markdown("---")
+            col_conf1, col_conf2 = strl.columns(2)
+            
+            if col_conf1.button("🗑️ Confirmar Exclusão", type="primary", use_container_width=True):
+                with strl.spinner("🗑️ REMOVENDO REGISTRO DO ACERVO..."):
+                    try:
+                        df_planilha = pd.read_excel(ARQUIVO_EXCEL, sheet_name="BD")
+                        df_planilha = df_planilha.drop(index_linha)
                         
-                        strl.markdown("---")
-                        if strl.session_state["usuario_login"] == "1":
-                            strl.info("💡 OPERADOR NÍVEL 1 (CONSULTA): Seu perfil não possui permissões para alterar registros do acervo.")
-                        else:
-                            if strl.button("✏️ ALTERAR DADOS DO ALUNO SELECIONADO", type="primary"):
-                                popup_editar_aluno(indice_real_excel, aluno_row_data)
+                        with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+                            df_planilha.to_excel(writer, sheet_name="BD", index=False)
+                            
+                        registrar_log_auditoria(
+                            strl.session_state["usuario_nome"], 
+                            f"EXCLUIU O REGISTRO DO ALUNO: {dados_aluno['NOME DO ALUNO(A)']} (ESCOLA: {dados_aluno['UNIDADE ESCOLAR']})"
+                        )
+                        strl.cache_data.clear()
+                        strl.success("Registro excluído com sucesso!")
+                        strl.rerun()
+                    except Exception as err_exc:
+                        strl.error(f"Erro ao excluir registro: {err_exc}")
+                        
+            if col_conf2.button("❌ Cancelar", use_container_width=True):
+                strl.rerun()
+
+        # Botões de Ação do Perfil
+        strl.markdown("---")
+        if strl.session_state["usuario_login"] == "1":
+            strl.info("💡 OPERADOR NÍVEL 1 (CONSULTA): Seu perfil não possui permissões para alterar ou excluir registros do acervo.")
+        else:
+            btn_e1, btn_e2 = strl.columns(2)
+            with btn_e1:
+                if strl.button("✏️ ALTERAR DADOS DO ALUNO", type="primary", use_container_width=True):
+                    popup_editar_aluno(indice_real_excel, aluno_row_data)
+            with btn_e2:
+                if strl.button("🗑️ EXCLUIR REGISTRO DO ALUNO", use_container_width=True):
+                    popup_excluir_aluno(indice_real_excel, aluno_row_data)
+
+
             else:
                 strl.warning("NENHUM ALUNO ENCONTRADO COM ESSE NOME.")
 
