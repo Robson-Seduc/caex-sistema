@@ -16,8 +16,12 @@ strl.set_page_config(page_title="CAEX - Sistema Integrado", layout="wide", page_
 # Nome exato do seu arquivo Excel no formato padrão corporativo do projeto
 ARQUIVO_EXCEL = "Controle de Alunos Escolas Extintas - CAEX.xlsx"
 
-# CONFIGURAÇÃO INTERNA E FIXA DA CONTA MASTER DO DIRETOR
+# -----------------------------------------------------------------------
+# RECOLOQUE ESTAS DUAS LINHAS EXATAMENTE AQUI NO TOPO DO SEU ARQUIVO:
+# -----------------------------------------------------------------------
+USUARIO_MASTER = "ROBSON.TEIXEIRA@SEDUC.GO.GOV.BR"
 SENHA_MASTER = "Rs52846917Lm*"
+
 
 # -----------------------------------------------------------------------
 # ENGINE DE SESSÃO NATIVA: Mantém as chaves de login salvas na memória local
@@ -588,7 +592,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                 selecao = strl.dataframe(tabela_ordenada, width="stretch", hide_index=True, selection_mode="single-row", on_select="rerun")
                 
 # =======================================================================
-# PARTE 8: 🏠 PAINEL INICIAL ( BUSCA, EDIÇÃO E EXCLUSÃO NO PAINEL INICIAL)
+# PARTE 8.1: 🏠 PAINEL INICIAL ( BUSCA, EDIÇÃO E EXCLUSÃO NO PAINEL INICIAL)
 # =======================================================================
                 if selecao and "selection" in selecao and selecao["selection"].get("rows"):
                     idx_linha_selecionada = selecao["selection"]["rows"][0] # CORREÇÃO: Extrai o inteiro da lista de seleção
