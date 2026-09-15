@@ -805,42 +805,81 @@ if tela_selecionada == "📝 NOVAS PASTAS":
 # =======================================================================
 
 if tela_selecionada == "📥 EXPORTAR DADOS":
-    strl.markdown("## 📥 EXPORTAR DADOS POR ESCOLA")
-    strl.markdown("Selecione uma instituição abaixo para gerar e baixar a planilha contendo a listagem completa de alunos.")
+    strl.markdown("## 📥 CENTRAL DE EXPORTAÇÃO DE DADOS")
+    strl.markdown("Escolha abaixo se deseja baixar o acervo completo do sistema ou filtrar os registros de uma instituição específica.")
+    import io
+    with strl.container(border=True):
+        strl.markdown("##### 🌎 EXPORTAÇÃO GLOBAL DO ACERVO")
+        if not df_dados.empty:
+            total_geral_linhas = len(df_dados)
+            strl.write(f"Clique no botão abaixo para gerar uma planilha unificada contendo todos os **{total_geral_linhas:,}** registros salvos no sistema CAEX.".replace(",", "."))
+            
+            try:
+                # Ordena todo o banco de dados pelo nome do aluno de A-Z para o relatório
+                df_geral_ordenado = df_dados[["NOME DO ALUNO(A)", "UNIDADE ESCOLAR", "Nº DA PASTA", "PASTA ARQUIVO"]].copy()
+                df_geral_ordenado.columns = ["NOME DO ALUNO", "UNIDADE ESCOLAR", "Nº PASTA", "PASTA ARQUIVO"]
+                df_geral_ordenado = df_geral_ordenado.sort_values(by="NOME DO ALUNO", ascending=True)
+                
+                # Prepara o arquivo binário do Excel na memória RAM
+                output_geral = io.BytesIO()
+                with pd.ExcelWriter(output_geral, engine='openpyxl') as writer_geral:
+                    df_geral_ordenado.to_excel(writer_geral, sheet_name="ACERVO_TOTAL", index=False)
+                dados_excel_geral = output_geral.getvalue()
+                
+                # Botão de download destacado em azul (tipo primary)
+                strl.download_button(
+                    label=f"📥 EXPORTAR TODO O BANCO DE DADOS ({total_geral_linhas:,} REGISTROS)".replace(",", "."),
+                    data=dados_excel_geral,
+                    file_name="CAEX_ACERVO_TOTAL_COMPLETO.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary"
+                )
+            except Exception as e_export_geral:
+                strl.error(f"Erro ao preparar download do banco de dados geral: {e_export_geral}")
+        else:
+            strl.warning("O banco de dados está vazio ou não pôde ser carregado na memória.")
 
-    lista_escolas_exportar = carregar_lista_escolas()
-    if lista_escolas_exportar:
-        escola_alvo = strl.selectbox("Selecione a Escola que deseja exportar:", ["--- SELECIONE UMA ESCOLA ---"] + lista_escolas_exportar)
+    strl.markdown("<br>", unsafe_allow_html=True) # Espaçador visual entre os blocos
+
+# -----------------------------------------------------------------------
+# # PARTE 10.1: BLOCO ORIGINAL: EXPORTAÇÃO INDIVIDUAL POR UNIDADE ESCOLAR
+# -----------------------------------------------------------------------
+    with strl.container(border=True):
+        strl.markdown("##### 🏫 EXPORTAÇÃO INDIVIDUAL POR ESCOLA")
+        lista_escolas_exportar = carregar_lista_escolas()
         
-        if escola_alvo != "--- SELECIONE UMA ESCOLA ---":
-            alunos_filtrados = df_dados[df_dados["UNIDADE ESCOLAR"] == escola_alvo].copy()
-            relatorio_final = alunos_filtrados[["NOME DO ALUNO(A)", "UNIDADE ESCOLAR", "Nº DA PASTA", "PASTA ARQUIVO"]].copy()
-            relatorio_final.columns = ["NOME DO ALUNO", "UNIDADE ESCOLAR", "Nº PASTA", "PASTA ARQUIVO"]
-            relatorio_final = relatorio_final.sort_values(by="NOME DO ALUNO", ascending=True)
+        if lista_escolas_exportar:
+            escola_alvo = strl.selectbox("Selecione a Escola que deseja exportar:", ["--- SELECIONE UMA ESCOLA ---"] + lista_escolas_exportar)
             
-            total_filtrado = len(relatorio_final)
-            strl.markdown(f"**Total de alunos localizados para esta instituição:** {total_filtrado} registros.")
-            
-            if total_filtrado > 0:
-                strl.dataframe(relatorio_final, width="stretch", hide_index=True)
-                try:
-                    import io
-                    output = io.BytesIO()
-                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                        relatorio_final.to_excel(writer, sheet_name="ALUNOS", index=False)
-                    dados_excel_binario = output.getvalue()
-                    
-                    nome_arquivo_baixado = f"ALUNOS_{escola_alvo.replace(' ', '_')}.xlsx"
-                    strl.download_button(
-                        label=f"📥 BAIXAR PLANILHA EXCEL ({total_filtrado} ALUNOS)",
-                        data=dados_excel_binario,
-                        file_name=nome_arquivo_baixado,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-                except Exception as e_export:
-                    strl.error(f"Erro ao gerar o arquivo de download: {e_export}")
-            else:
-                strl.warning("Não existem alunos cadastrados para esta escola no momento.")
+            if school_target := escola_alvo if 'school_target' in locals() else escola_alvo != "--- SELECIONE UMA ESCOLA ---":
+                alunos_filtrados = df_dados[df_dados["UNIDADE ESCOLAR"] == escola_alvo].copy()
+                relatorio_final = alunos_filtrados[["NOME DO ALUNO(A)", "UNIDADE ESCOLAR", "Nº DA PASTA", "PASTA ARQUIVO"]].copy()
+                relatorio_final.columns = ["NOME DO ALUNO", "UNIDADE ESCOLAR", "Nº PASTA", "PASTA ARQUIVO"]
+                relatorio_final = relatorio_final.sort_values(by="NOME DO ALUNO", ascending=True)
+                
+                total_filtrado = len(relatorio_final)
+                strl.markdown(f"**Total de alunos localizados para esta instituição:** {total_filtrado} registros.")
+                
+                if total_filtrado > 0:
+                    strl.dataframe(relatorio_final, width="stretch", hide_index=True)
+                    try:
+                        output = io.BytesIO()
+                        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                            relatorio_final.to_excel(writer, sheet_name="ALUNOS", index=False)
+                        dados_excel_binario = output.getvalue()
+                        
+                        nome_arquivo_baixado = f"ALUNOS_{escola_alvo.replace(' ', '_')}.xlsx"
+                        strl.download_button(
+                            label=f"📥 BAIXAR PLANILHA EXCEL ({total_filtrado} ALUNOS)",
+                            data=dados_excel_binario,
+                            file_name=nome_arquivo_baixado,
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    except Exception as e_export:
+                        strl.error(f"Erro ao gerar o arquivo de download por escola: {e_export}")
+                else:
+                    strl.warning("Não existem alunos cadastrados para esta escola no momento.")
+
 
 
 # =======================================================================
