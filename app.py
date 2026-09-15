@@ -53,23 +53,19 @@ def realizar_backup_automatico():
         pass
 
 realizar_backup_automatico()
+
 # =======================================================================
 # PARTE 2: MOTORES DE AUDITORIA DE REDE E CARREGADORES DO BANCO DE DADOS
 # =======================================================================
 
-# -----------------------------------------------------------------------
-# LIVRO DE AUDITORIA: Registra DATA, PC, REDE, NOME e AÇÃO no LOG.csv
-# -----------------------------------------------------------------------
 def registrar_log_auditoria(nome_funcionario, acao_realizada):
     try:
         nome_pc = socket.gethostname().upper()
         usuario_rede = getpass.getuser().upper()
         
         try:
-            # Tenta ler o arquivo CSV de logs existente detectando o separador original
-            df_log = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python')
+            df_log = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python', on_bad_lines='skip')
         except:
-            # Se der erro ou o arquivo não existir, cria a estrutura padrão limpa
             df_log = pd.DataFrame(columns=["DATA", "PC", "REDE", "USUÁRIO /NOME", "AÇÃO", "STATUS"])
             
         nova_linha_log = pd.DataFrame([{
@@ -82,23 +78,21 @@ def registrar_log_auditoria(nome_funcionario, acao_realizada):
         }])
         
         df_log_atualizado = pd.concat([df_log, nova_linha_log], ignore_index=True)
-        # Salva em formato CSV com ponto e vírgula e codificação universal compatível com Excel
         df_log_atualizado.to_csv(ARQUIVO_LOG_CSV, index=False, sep=";", encoding="utf-8-sig")
     except:
         pass
 
-# -----------------------------------------------------------------------
-# ENGINE DE LEITURA DO ACERVO: Armazena as linhas na memória RAM do CSV
-# Otimização de Performance: TTL de 10 minutos evita leituras físicas no HD
-# -----------------------------------------------------------------------
 @strl.cache_data(ttl=600)
 def carregar_dados_bd():
     try:
-        df = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python')
+        # CORREÇÃO CRÍTICA: Ignora erros de linhas desalinhadas para não travar o app
+        df = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python', on_bad_lines='skip')
         df = df.fillna("NÃO IDENTIFICADO")
-        for col in ["UNIDADE ESCOLAR", "NOME DO ALUNO(A)", "Nº DA PASTA", "PASTA ARQUIVO"]:
-            if col in df.columns:
-                df[col] = df[col].astype(str).str.strip().str.upper()
+        
+        # Mapeia dinamicamente as colunas para evitar erros de acentuação
+        colunas_disponiveis = list(df.columns)
+        for col in colunas_disponiveis:
+            df[col] = df[col].astype(str).str.strip().str.upper()
         return df
     except Exception as e:
         strl.error(f"ERRO CRÍTICO AO LER BANCO DE DADOS (BD.csv): {e}")
@@ -107,7 +101,7 @@ def carregar_dados_bd():
 @strl.cache_data(ttl=600)
 def carregar_lista_escolas():
     try:
-        df = pd.read_csv(ARQUIVO_ESCOLAS_CSV, sep=None, engine='python')
+        df = pd.read_csv(ARQUIVO_ESCOLAS_CSV, sep=None, engine='python', on_bad_lines='skip')
         if not df.empty:
             colunas_maiusculas = [str(c).strip().upper() for c in df.columns]
             coluna_encontrada = None
@@ -122,10 +116,8 @@ def carregar_lista_escolas():
     except:
         return []
 
-# Ativa o banco de dados principal de alta velocidade na memória cache baseado em CSV
 df_dados = carregar_dados_bd()
 
-# Desenha o cabeçalho identitário azul
 strl.markdown(
     """
     <div style="background-color:#1e40af; padding:15px; border-radius:10px; margin-bottom:25px;">
@@ -136,6 +128,8 @@ strl.markdown(
     """, 
     unsafe_allow_html=True
 )
+
+
 # =======================================================================
 # PARTE 3: FORMULÁRIOS FLUTUANTES (POP-UPS) DA TELA DE LOGIN
 # =======================================================================
@@ -722,6 +716,8 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                     popup_excluir_aluno(indice_real_excel, aluno_row_data)
             else:
                 strl.warning("NENHUM ALUNO ENCONTRADO COM ESSE NOME.")
+       strl.error(f"Erro crítico de alta velocidade ao gravar os dados no BD.csv: {erro}")
+
 # =======================================================================
 # PARTE 10: 📝 NOVAS PASTAS (FORMULÁRIO DO ALUNO + POP-UP DINÂMICO DE ESCOLA)
 # =======================================================================
@@ -747,10 +743,9 @@ if tela_selecionada == "📝 NOVAS PASTAS":
             if p_nome.strip() == "":
                 strl.error("O nome da escola é obrigatório.")
             else:
-                with strl.spinner("💾 GRAVANDO NOVA ESCOLA NO ACERVO... POR FAVOR, AGUARDE..."):
+                with strl.spinner("💾 GRAVANDO NOVA ESCOLA NO ACERVO..."):
                     try:
-                        # Lê a base diretamente de ESCOLAS.csv detectando o separador original
-                        df_escolas = pd.read_csv(ARQUIVO_ESCOLAS_CSV, sep=None, engine='python')
+                        df_escolas = pd.read_csv(ARQUIVO_ESCOLAS_CSV, sep=None, engine='python', on_bad_lines='skip')
                         coluna_nome = df_escolas.columns[0]
                         escola_final = p_nome.upper().strip()
                         
@@ -764,11 +759,9 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                                 "Contato": p_contato.upper().strip()
                             }])
                             df_escolas = pd.concat([df_escolas, nova_linha], ignore_index=True)
-                            
-                            # Salva a listagem atualizada de volta no arquivo ESCOLAS.csv
                             df_escolas.to_csv(ARQUIVO_ESCOLAS_CSV, index=False, sep=";", encoding="utf-8-sig")
                             
-                            strl.session_state["escola_selecionada_atual"] = escola_final
+                            strl.session_state["escola_selecionada_atual"] = school_final if 'school_final' in locals() else escola_final
                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU NOVA UNIDADE ESCOLAR: {escola_final}")
                             
                             strl.cache_data.clear()
@@ -811,38 +804,46 @@ if tela_selecionada == "📝 NOVAS PASTAS":
             elif nome_aluno.strip() == "" or numero_pasta.strip() == "" or caixa_arquivo.strip() == "":
                 strl.error("Todos os campos do aluno são obrigatórios.")
             else:
-                with strl.spinner("⚡ GRAVANDO REGISTRO EM ALTA VELOCIDADE..."):
+                with strl.spinner("⚡ GRAVANDO E PADRONIZANDO BANCO DE DADOS..."):
                     try:
-                        # Formata os dados rigorosamente em maiúsculo padrão CAEX
+                        # 1. Lê a base atual capturando o separador correto automaticamente
+                        df_bd_original = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python', on_bad_lines='skip')
+                        
+                        # Detecta dinamicamente os nomes exatos das colunas atuais da tabela
+                        colunas_reais = list(df_bd_original.columns)
+                        col_escola = next((c for c in colunas_reais if "ESCOLA" in str(c).upper() or "UNIDADE" in str(c).upper()), "UNIDADE ESCOLAR")
+                        col_aluno = next((c for c in colunas_reais if "ALUNO" in str(c).upper()), "NOME DO ALUNO(A)")
+                        col_pasta = next((c for c in colunas_reais if "PASTA" in str(c).upper() and "ARQUIVO" not in str(c).upper()), "Nº DA PASTA")
+                        col_caixa = next((c for c in colunas_reais if "ARQUIVO" in str(c).upper() or "CAIXA" in str(c).upper()), "PASTA ARQUIVO")
+                        col_origem = next((c for c in colunas_reais if "ORIGEM" in str(c).upper()), "ARQUIVO ORIGEM")
+
+                        # Formata os novos dados
                         escola_f = escola_ativa.upper().strip()
                         nome_f = nome_aluno.upper().strip()
                         pasta_f = numero_pasta.upper().strip()
                         caixa_f = caixa_arquivo.upper().strip()
-                        origem_f = "CADASTRO_MANUAL"
                         
-                        # Monta a estrutura limpa da nova linha
+                        # Cria o DataFrame alinhado com os nomes reais das colunas detectadas
                         nova_linha_aluno = pd.DataFrame([{
-                            "UNIDADE ESCOLAR": escola_f, 
-                            "NOME DO ALUNO(A)": nome_f, 
-                            "Nº DA PASTA": pasta_f, 
-                            "PASTA ARQUIVO": caixa_f, 
-                            "ARQUIVO ORIGEM": origem_f
+                            col_escola: escola_f, 
+                            col_aluno: nome_f, 
+                            col_pasta: pasta_f, 
+                            col_caixa: caixa_f, 
+                            col_origem: "CADASTRO_MANUAL"
                         }])
                         
-                        # GRAVAÇÃO INSTANTÂNEA: Grava diretamente no final do arquivo de texto BD.csv
-                        # Se o arquivo já existir, o 'mode="a"' apenas concatena a linha sem carregar as outras 27 mil linhas
-                        nova_linha_aluno.to_csv(ARQUIVO_BD_CSV, mode='a', header=not os.path.exists(ARQUIVO_BD_CSV), index=False, sep=";", encoding="utf-8-sig")
+                        # Combina e reescreve de forma limpa e unificada
+                        df_consolidado = pd.concat([df_bd_original, nova_linha_aluno], ignore_index=True)
+                        df_consolidado.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
                         
-                        # Limpa rigorosamente todo o cache do sistema para que a busca exiba o novo aluno imediatamente
                         strl.cache_data.clear()
-                        
                         registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU O ALUNO: {nome_f} NA PASTA: {pasta_f}")
                         
                         strl.session_state["escola_selecionada_atual"] = "--- SELECIONE ---"
                         strl.success(f"✅ Cadastro realizado com sucesso!\n\nAluno: {nome_f}\nEscola: {escola_f}")
                         strl.rerun()
                     except Exception as erro:
-                        strl.error(f"Erro crítico de alta velocidade ao gravar os dados no BD.csv: {erro}")
+                        strl.error(f"Erro ao sincronizar gravação no arquivo BD.csv: {erro}")
 
 # =======================================================================
 # PARTE 11: 📥 EXPORTAR DADOS (DOWNLOAD RESTRITO EM EXCEL DE A-Z)
