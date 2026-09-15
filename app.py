@@ -152,12 +152,12 @@ def popup_solicitar_cadastro():
         else:
             with strl.spinner("GRAVANDO REQUISIÇÃO FISICAMENTE NO DISCO..."):
                 try:
-                    # LER DIRETAMENTE DO ARQUIVO FÍSICO LOCAL USER.csv
-                    df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python', on_bad_lines='skip')
+                    # 1. LER DIRETAMENTE DO ARQUIVO FÍSICO COM PONTO E VÍRGULA
+                    df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=";", engine='python', on_bad_lines='skip')
                     df_usuarios = df_usuarios.fillna("NÃO IDENTIFICADO")
                     df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
                     
-                    # MAPEAMENTO DINÂMICO DE COLUNAS: Garante compatibilidade de títulos
+                    # Mapeamento dinâmico de colunas para garantir compatibilidade
                     colunas_user_reais = list(df_usuarios.columns)
                     col_user_real = next((c for c in colunas_user_reais if "USUÁRIO" in str(c) or "USUARIO" in str(c)), "USUÁRIO")
                     col_nivel_real = next((c for c in colunas_user_reais if "NÍVEL" in str(c) or "NIVEL" in str(c)), "NÍVEL")
@@ -175,7 +175,7 @@ def popup_solicitar_cadastro():
                         elif len(fone_limpo) == 10:
                             fone_formatado = f"({fone_limpo[:2]}) {fone_limpo[2:6]}-{fone_limpo[6:]}"
                         
-                        # Alinha a nova linha usando vetores estáveis para o pandas tabular
+                        # Alinha os dados estruturados em listas de elementos puros para o Pandas tabular
                         nova_linha_user = pd.DataFrame({
                             col_user_real: [c_user], 
                             col_senha_real: [c_pass], 
@@ -186,11 +186,11 @@ def popup_solicitar_cadastro():
                         
                         df_user_atualizado = pd.concat([df_usuarios, nova_linha_user], ignore_index=True)
                         
-                        # SALVA DIRETAMENTE NO DISCO (USER.csv) usando o PONTO E VÍRGULA oficial do seu acervo
+                        # 2. SALVAR DEFINITIVAMENTE USANDO PONTO E VÍRGULA (PADRÃO SEU)
                         df_user_atualizado.to_csv(ARQUIVO_USER_CSV, index=False, sep=";", encoding="utf-8-sig")
                         
                         registrar_log_auditoria(c_nome, f"CRIOU CONTA PARA O EMAIL: {c_user}")
-                        strl.success("✅ Conta criada e gravada com sucesso no arquivo local USER.csv!")
+                        strl.success("✅ Conta criada e gravada com sucesso no arquivo USER.csv!")
                         strl.rerun()
                 except Exception as e_c:
                     strl.error(f"Erro ao salvar cadastro no arquivo de usuários: {e_c}")
