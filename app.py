@@ -738,7 +738,6 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
             else:
                 strl.warning("NENHUM ALUNO ENCONTRADO COM ESSE NOME.")
 
-
 # =======================================================================
 # PARTE 10: 📝 NOVAS PASTAS (FORMULÁRIO DO ALUNO + POP-UP DINÂMICO DE ESCOLA)
 # =======================================================================
@@ -762,7 +761,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
         btn_salvar_escola = strl.button("💾 Salvar Escola no Acervo")
         if btn_salvar_escola:
             if p_nome.strip() == "":
-                strl.error("O nome da escola é obrigatório.")
+                strl.error("O nome da escola é maioritário.") if 'O nome da escola é maioritário.' in locals() else strl.error("O nome da escola é obrigatório.")
             else:
                 with strl.spinner("💾 GRAVANDO NOVA ESCOLA NO ACERVO..."):
                     try:
@@ -798,7 +797,6 @@ if tela_selecionada == "📝 NOVAS PASTAS":
         if strl.session_state["escola_selecionada_atual"] in opcoes_escola:
             index_padrao = opcoes_escola.index(strl.session_state["escola_selecionada_atual"])
 
-    # CORREÇÃO DEFINITIVA: Adicionada uma key exclusiva para o selectbox não conflitar com outras telas
     escola_selecionada = strl.selectbox("1. Selecione a Unidade Escolar:", opcoes_escola, index=index_padrao, key="selectbox_cadastro_novas_pastas")
 
     if escola_selecionada == "➕ CADASTRAR NOVA ESCOLA":
@@ -843,23 +841,35 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                         pasta_f = numero_pasta.upper().strip()
                         caixa_f = caixa_arquivo.upper().strip()
                         
-                        nova_linha_aluno = pd.DataFrame([{
-                            col_escola: escola_f, 
-                            col_aluno: nome_f, 
-                            col_pasta: pasta_f, 
-                            col_caixa: caixa_f, 
-                            col_origem: "CADASTRO_MANUAL"
-                        }])
+                        # -----------------------------------------------------------------------
+                        # TRAVA DE SEGURANÇA CONTRA PASTAS DUPLICADAS NA MESMA ESCOLA
+                        # -----------------------------------------------------------------------
+                        filtro_pasta_duplicada = (df_bd_original[col_escola].astype(str).str.upper().str.strip() == escola_f) & \
+                                                 (df_bd_original[col_pasta].astype(str).str.upper().str.strip() == pasta_f)
                         
-                        df_consolidado = pd.concat([df_bd_original, nova_linha_aluno], ignore_index=True)
-                        df_consolidado.to_csv(ARQUIVO_BD_CSV, index=False, sep=",", encoding="utf-8-sig")
-                        
-                        strl.cache_data.clear()
-                        registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU O ALUNO: {nome_f} NA PASTA: {pasta_f}")
-                        
-                        strl.session_state["escola_selecionada_atual"] = escola_ativa 
-                        strl.success(f"✅ Cadastro realizado com sucesso e gravado em disco!\n\nAluno: {nome_f}\nEscola: {escola_f}")
-                        strl.rerun()
+                        if filtro_pasta_duplicada.any():
+                            # Localiza quem é o aluno que já está usando aquela pasta para avisar o operador
+                            aluno_existente = df_bd_original[filtro_pasta_duplicada].iloc[0][col_aluno]
+                            strl.error(f"❌ IMPOSSÍVEL SALVAR: A Pasta Nº **{pasta_f}** já está ocupada nesta escola pelo aluno **{aluno_existente}**!")
+                        else:
+                            # Se a pasta estiver livre, prossegue com o cadastro normal
+                            nova_linha_aluno = pd.DataFrame([{
+                                col_escola: escola_f, 
+                                col_aluno: nome_f, 
+                                col_pasta: pasta_f, 
+                                col_caixa: caixa_f, 
+                                col_origem: "CADASTRO_MANUAL"
+                            }])
+                            
+                            df_consolidado = pd.concat([df_bd_original, nova_linha_aluno], ignore_index=True)
+                            df_consolidado.to_csv(ARQUIVO_BD_CSV, index=False, sep=",", encoding="utf-8-sig")
+                            
+                            strl.cache_data.clear()
+                            registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU O ALUNO: {nome_f} NA PASTA: {pasta_f}")
+                            
+                            strl.session_state["escola_selecionada_atual"] = escola_ativa 
+                            strl.success(f"✅ Cadastro realizado com sucesso e gravado em disco!\n\nAluno: {nome_f}\nEscola: {escola_f}")
+                            strl.rerun()
                     except Exception as erro:
                         strl.error(f"Erro ao sincronizar gravação no arquivo BD.csv: {erro}")
 
@@ -874,7 +884,6 @@ if tela_selecionada == "📝 NOVAS PASTAS":
         height=0,
         width=0
     )
-
 
 # =======================================================================
 # PARTE 11: 📥 EXPORTAR DADOS (DOWNLOAD RESTRITO EM EXCEL DE A-Z)
