@@ -171,6 +171,7 @@ def popup_solicitar_cadastro():
                         f"DETALHES: CRIAR CONTA MANUAL - NOME: {c_nome} | E-MAIL: {c_user} | SENHA REQUERIDA: {c_pass} | FONE: {fone_formatado}"
                     )
 
+
                     # Lê o arquivo LOG.csv existente mantendo o separador ponto e vírgula oficial
                     df_log_atual = pd.read_csv(ARQUIVO_LOG_CSV, sep=";", engine='python', on_bad_lines='skip')
                     
