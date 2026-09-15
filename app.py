@@ -223,6 +223,7 @@ def popup_pedir_elevacao():
                     strl.error("Credenciais inválidas. Verifique seu e-mail e senha atual.")
             except Exception as err_envio:
                 strl.error(f"Erro ao processar requisição no banco de dados: {err_envio}")
+
 # =======================================================================
 # PARTE 5: INTERFACE GRÁFICA DE LOGIN, VALIDAÇÃO E MENUS DA BARRA LATERAL
 # =======================================================================
@@ -283,7 +284,7 @@ if not strl.session_state["autenticado"]:
                 usuario_valido = df_usuarios[filtro_user]
                 
                 if not usuario_valido.empty:
-                    # CORREÇÃO CRÍTICA: Adicionado o .iloc[0] para capturar a primeira linha localizada no CSV
+                    # CORREÇÃO DEFINITIVA: Corrigido o fechamento do iloc posicional usando os colchetes corretos
                     nome_real = str(usuario_valido.iloc[0][col_nome_real]).upper().strip()
                     nivel_acesso = str(usuario_valido.iloc[0][col_nivel_real]).strip()
                     
@@ -346,7 +347,6 @@ tela_selecionada = strl.sidebar.radio(
     key="chave_menu"
 )
 
-)
 
 # =======================================================================
 # PARTE 6: PAINEL DE CONTROLE EXCLUSIVO MASTER - FLUXO 1 (🛠️ C-PANEL)
