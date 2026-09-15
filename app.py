@@ -347,8 +347,6 @@ tela_selecionada = strl.sidebar.radio(
 )
 
 
-
-
 # =======================================================================
 # PARTE 6: PAINEL DE CONTROLE EXCLUSIVO MASTER - FLUXO 1 (🛠️ C-PANEL)
 # =======================================================================
@@ -357,7 +355,6 @@ if tela_selecionada == "🛠️ C-PANEL":
     strl.markdown("## 🛠️ C-PANEL - CENTRAL DE CONTROLE DO ADMINISTRADOR")
     strl.markdown("Gerenciamento avançado de permissões de operadores, manutenção do sistema e atendimento de suporte.")
     
-    # Restrição física absoluta de segurança na interface
     if strl.session_state["usuario_login"] != "3":
         strl.error("⚠️ ACESSO NEGADO: Esta área é restrita à conta master da direção.")
         strl.stop()
@@ -366,26 +363,33 @@ if tela_selecionada == "🛠️ C-PANEL":
         df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
         df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
         
-        # -----------------------------------------------------------------------
-        # FLUXO 1: REQUERIMENTOS DE MUDANÇA DE NÍVEL
-        # -----------------------------------------------------------------------
-        pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
+        if "STATUS" not in df_log_check.columns:
+            df_log_check["STATUS"] = "ABERTO"
+            
+        # Filtra apenas pedidos cujo status não esteja concluído
+        pedidos_pendentes = df_log_check[
+            (df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)) &
+            (df_log_check["STATUS"].astype(str).str.upper().str.strip() != "CONCLUÍDO")
+        ].copy()
         
         if not pedidos_pendentes.empty:
             strl.markdown("#### 📋 FILA DE AVALIAÇÃO DE MUDANÇA DE NÍVEL")
+            
+            # CORREÇÃO CRÍTICA: Mapeia o índice absoluto antes de condensar a tabela
+            pedidos_pendentes["INDEX_REAL_EXCEL"] = pedidos_pendentes.index
             pedidos_unicos = pedidos_pendentes.drop_duplicates(subset=["USUÁRIO /NOME"], keep="last")
             
             for idx, linha_pedido in pedidos_unicos.iterrows():
                 funcionario_pedinte = str(linha_pedido["USUÁRIO /NOME"]).upper().strip()
                 detalhes_acao = str(linha_pedido["AÇÃO"])
                 data_pedido = linha_pedido["DATA"]
+                indice_original_excel = int(linha_pedido["INDEX_REAL_EXCEL"])
                 
                 partes_pedido = detalhes_acao.split("|")
                 if len(partes_pedido) >= 3:
                     nivel_pedido = ""
                     justificativa_pedido = ""
                     
-                    # CORREÇÃO CRÍTICA: Varre a lista de forma segura tratando strings individualmente
                     for item_ped in partes_pedido:
                         item_ped_up = item_ped.upper().strip()
                         if "NÍVEL SOLICITADO:" in item_ped_up:
@@ -401,62 +405,71 @@ if tela_selecionada == "🛠️ C-PANEL":
                         col_btn1, col_btn2 = strl.columns([0.2, 0.8])
                         
                         if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()[0]}", key=f"aprov_cp_{idx}"):
-                            with strl.spinner("Aplicando elevação no Excel..."):
+                            with strl.spinner("Aplicando elevação de nível..."):
                                 df_user_master = pd.read_excel(ARQUIVO_EXCEL, sheet_name="USER")
                                 df_user_master.columns = [str(c).strip().upper() for c in df_user_master.columns]
-                                
                                 col_nivel_ref = "NÍVEL" if "NÍVEL" in df_user_master.columns else "NIVEL"
                                 filtro_mudar = df_user_master["NOME"].astype(str).str.upper().str.strip() == funcionario_pedinte
                                 
                                 if filtro_mudar.any():
                                     df_user_master.loc[filtro_mudar, col_nivel_ref] = int(nivel_pedido)
+                                    
+                                    # Grava usando o índice correto e real da linha
+                                    df_atualizar_log = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
+                                    df_atualizar_log.at[indice_original_excel, "STATUS"] = "CONCLUÍDO"
+                                    
                                     with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
                                         df_user_master.to_excel(writer, sheet_name="USER", index=False)
+                                        df_atualizar_log.to_excel(writer, sheet_name="LOG", index=False)
                                         
                                     registrar_log_auditoria("ROBSON TEIXEIRA", f"APROVOU VIA C-PANEL O FUNCIONÁRIO {funcionario_pedinte} PARA O NÍVEL {nivel_pedido}")
-                                    strl.success(f"Nível de {funcionario_pedinte} atualizado!")
+                                    strl.success(f"Solicitação concluída com sucesso!")
                                     strl.cache_data.clear()
                                     strl.rerun()
                                 else:
                                     strl.error("Funcionário não localizado na aba 'USER'.")
                                     
                         if col_btn2.button(f"❌ Arquivar Pedido", key=f"recus_cp_{idx}"):
-                            registrar_log_auditoria("ROBSON TEIXEIRA", f"ARQUIVOU VIA C-PANEL O PEDIDO DE {funcionario_pedinte}")
-                            strl.info("Solicitação arquivada.")
-                            strl.rerun()
+                            with strl.spinner("Arquivando solicitação..."):
+                                df_atualizar_log = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
+                                df_atualizar_log.at[indice_original_excel, "STATUS"] = "CONCLUÍDO"
+                                with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+                                    df_atualizar_log.to_excel(writer, sheet_name="LOG", index=False)
+                                    
+                                registrar_log_auditoria("ROBSON TEIXEIRA", f"ARQUIVOU VIA C-PANEL O PEDIDO DE {funcionario_pedinte}")
+                                strl.cache_data.clear()
+                                strl.rerun()
             strl.markdown("---")
     except Exception as e_cp_f1:
         strl.error(f"Erro na varredura do C-PANEL Fluxo 1: {e_cp_f1}")
-
 
 # =======================================================================
 # PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (🛠️ C-PANEL)
 # =======================================================================
 
-if tela_selecionada == "🛠️ C-PANEL":
     try:
         df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
         df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
         
-        # Garante a existência da coluna STATUS de controle para evitar quebras de leitura
         if "STATUS" not in df_log_check.columns:
             df_log_check["STATUS"] = "ABERTO"
         
-        # Filtra apenas os logs que possuem chamados técnicos e que ainda estão com o STATUS igual a ABERTO
         chamados_abertos = df_log_check[
             (df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)) & 
             (df_log_check["STATUS"].astype(str).str.upper().str.strip() == "ABERTO")
-        ]
+        ].copy()
         
         strl.markdown("#### 🛠️ MURAL DE CHAMADOS TÉCNICOS E SITUAÇÕES ADVERSAS")
         if not chamados_abertos.empty:
-            # Mantém a listagem limpa focando na última manifestação ativa por data
+            # CORREÇÃO CRÍTICA: Aplica o mesmo mapeamento de índice real para a fila de chamados
+            chamados_abertos["INDEX_REAL_EXCEL"] = chamados_abertos.index
             chamados_unicos = chamados_abertos.drop_duplicates(subset=["DATA", "USUÁRIO /NOME"], keep="last")
             
             for idx_ch, linha_chamado in chamados_unicos.iterrows():
                 operador_chamado = str(linha_chamado["USUÁRIO /NOME"]).upper().strip()
                 texto_chamado = str(linha_chamado["AÇÃO"])
                 data_chamado = linha_chamado["DATA"]
+                indice_chamado_excel = int(linha_chamado["INDEX_REAL_EXCEL"])
                 
                 partes_ch = texto_chamado.split("|")
                 if len(partes_ch) >= 5:
@@ -488,29 +501,25 @@ if tela_selecionada == "🛠️ C-PANEL":
                             
                         col_ch1, col_ch2 = strl.columns([0.2, 0.8])
                         
-                        # CORREÇÃO CRÍTICA: Altera diretamente a célula da linha correta no Excel para dar baixa real
                         if col_ch1.button(f"🏁 Concluir Atendimento", key=f"Resolv_{idx_ch}"):
                             with strl.spinner("Dando baixa no chamado técnico..."):
                                 df_planilha_log = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
                                 
-                                # Localiza a linha correta combinando o índice original do loop do pandas
-                                df_planilha_log.at[idx_ch, "STATUS"] = "CONCLUÍDO"
+                                # Grava a conclusão mirando o índice absoluto correto
+                                df_planilha_log.at[indice_chamado_excel, "STATUS"] = "CONCLUÍDO"
                                 
                                 with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
                                     df_planilha_log.to_excel(writer, sheet_name="LOG", index=False)
                                 
                                 registrar_log_auditoria("ROBSON TEIXEIRA", f"ENCERROU O ATENDIMENTO DO CHAMADO DE {operador_chamado} REGISTRADO EM {data_chamado}")
                                 strl.toast("✅ Chamado arquivado com sucesso!", icon="🏁")
+                                strl.cache_data.clear()
                                 strl.rerun()
         else:
             strl.success("✅ Excelente! Nenhum chamado operacional pendente de suporte técnico.")
             
     except Exception as e_cp_global:
         strl.error(f"Erro na varredura analítica do C-PANEL: {e_cp_global}")
-
-# =======================================================================
-# PARTE 8: 🏠 PAINEL INICIAL (Notificações Master, Busca e Estatísticas)
-# =======================================================================
 
 # =======================================================================
 # PARTE 8: 🏠 PAINEL INICIAL (Notificações Master, Busca e Estatísticas)
