@@ -792,8 +792,8 @@ if tela_selecionada == "📝 NOVAS PASTAS":
     strl.session_state["escola_selecionada_atual"] = escola_selecionada
 
     with strl.form("form_cadastro_aluno", clear_on_submit=True):
-        # MELHORIA CRÍTICA: Adicionado autofocus=True para puxar o cursor automaticamente para este campo
-        nome_aluno = strl.text_input("2. Nome Completo do Aluno:", placeholder="DIGITE O NOME COMPLETO", autofocus=True)
+        # CORREÇÃO: Removido o autofocus que quebrava nas versões antigas e adicionada uma key fixa estável
+        nome_aluno = strl.text_input("2. Nome Completo do Aluno:", placeholder="DIGITE O NOME COMPLETO", key="campo_nome_aluno")
         col1, col2 = strl.columns(2)
         with col1:
             numero_pasta = strl.text_input("3. Número da Pasta")
@@ -805,7 +805,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
         if salvar:
             escola_ativa = strl.session_state.get("escola_selecionada_atual", "--- SELECIONE ---")
             
-            if escola_ativa in ["--- SELECIONE ---", "➕ CADASTRAR NOVA ESCOLA"]:
+            if school_active := escola_ativa if 'school_active' in locals() else escola_ativa in ["--- SELECIONE ---", "➕ CADASTRAR NOVA ESCOLA"]:
                 strl.error("Por favor, selecione uma Unidade Escolar válida na listagem superior.")
             elif nome_aluno.strip() == "" or numero_pasta.strip() == "" or caixa_arquivo.strip() == "":
                 strl.error("Todos os campos do aluno são obrigatórios.")
@@ -840,7 +840,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                         strl.cache_data.clear()
                         registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU O ALUNO: {nome_f} NA PASTA: {pasta_f}")
                         
-                        strl.session_state["escola_selecionada_atual"] = escola_ativa # Mantém a escola selecionada para o próximo cadastro em lote
+                        strl.session_state["escola_selecionada_atual"] = escola_ativa # Mantém a escola para digitação fluida
                         strl.success(f"✅ Cadastro realizado com sucesso!\n\nAluno: {nome_f}\nEscola: {escola_f}")
                         strl.rerun()
                     except Exception as erro:
