@@ -21,7 +21,7 @@ ARQUIVO_LOG_CSV = "LOG.csv"
 
 # CONFIGURAÇÃO INTERNA E FIXA DA CONTA MASTER DO DIRETOR
 USUARIO_MASTER = "ROBSON.TEIXEIRA@SEDUC.GO.GOV.BR"
-SENHA_MASTER = "Rs52846917Lm*"
+SENHA_MASTER = "123"
 
 # -----------------------------------------------------------------------
 # ENGINE DE SESSÃO NATIVA: Mantém as chaves de login salvas na memória local
@@ -618,14 +618,21 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                 strl.markdown("<small>💡 Dica: Selecione o aluno marcando a linha desejada na tabela abaixo para habilitar o botão de alteração.</small>", unsafe_allow_html=True)
                 selecao = strl.dataframe(tabela_ordenada, width="stretch", hide_index=True, selection_mode="single-row", on_select="rerun")
 
-
 # =======================================================================
 # PARTE 9: 🏠 PAINEL INICIAL ( BUSCA, EDIÇÃO E EXCLUSÃO NO PAINEL INICIAL)
 # =======================================================================
                 if selecao and "selection" in selecao and selecao["selection"].get("rows"):
                     idx_linha_selecionada = selecao["selection"]["rows"] # Extrai o inteiro da lista de seleção
                     nome_aluno_selecionado = tabela_ordenada.iloc[idx_linha_selecionada]["NOME DO ALUNO"]
-                    dados_originais_aluno = resultado_filtro[resultado_filtro["NOME DO ALUNO(A)"] == nome_aluno_selecionado]
+                    
+                    # CORREÇÃO CRÍTICA: Identifica dinamicamente a coluna de aluno real do arquivo para evitar o KeyError
+                    colunas_reais_bd = list(resultado_filtro.columns)
+                    col_aluno_real = next((c for c in colunas_reais_bd if "ALUNO" in str(c).upper()), colunas_reais_bd)
+                    col_escola_real = next((c for c in colunas_reais_bd if "ESCOLA" in str(c).upper() or "UNIDADE" in str(c).upper()), colunas_reais_bd)
+                    col_pasta_real = next((c for c in colunas_reais_bd if "PASTA" in str(c).upper() and "ARQUIVO" not in str(c).upper()), colunas_reais_bd)
+                    col_caixa_real = next((c for c in colunas_reais_bd if "ARQUIVO" in str(c).upper() or "CAIXA" in str(c).upper()), colunas_reais_bd)
+
+                    dados_originais_aluno = resultado_filtro[resultado_filtro[col_aluno_real] == nome_aluno_selecionado]
                     
                     if not dados_originais_aluno.empty:
                         indice_real_excel = dados_originais_aluno.index # Garante o índice inteiro escalar do arquivo CSV
@@ -633,15 +640,15 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                         
                         @strl.dialog("✏️ ALTERAR DADOS DO ALUNO")
                         def popup_editar_aluno(index_linha, dados_aluno):
-                            strl.markdown(f"Alterando o cadastro de: **{dados_aluno['NOME DO ALUNO(A)']}**")
-                            ed_nome = strl.text_input("Nome do Aluno:", value=dados_aluno["NOME DO ALUNO(A)"])
-                            ed_escola = strl.text_input("Unidade Escolar (Apenas Visualização):", value=dados_aluno["UNIDADE ESCOLAR"], disabled=True)
+                            strl.markdown(f"Alterando o cadastro de: **{dados_aluno[col_aluno_real]}**")
+                            ed_nome = strl.text_input("Nome do Aluno:", value=dados_aluno[col_aluno_real])
+                            ed_escola = strl.text_input("Unidade Escolar (Apenas Visualização):", value=dados_aluno[col_escola_real], disabled=True)
                             
                             ed_col1, ed_col2 = strl.columns(2)
                             with ed_col1:
-                                ed_pasta = strl.text_input("Número da Pasta:", value=dados_aluno["Nº DA PASTA"])
+                                ed_pasta = strl.text_input("Número da Pasta:", value=dados_aluno[col_pasta_real])
                             with ed_col2:
-                                ed_caixa = strl.text_input("Caixa Arquivo:", value=dados_aluno["PASTA ARQUIVO"])
+                                ed_caixa = strl.text_input("Caixa Arquivo:", value=dados_aluno[col_caixa_real])
                                 
                             btn_gravar_edicao = strl.button("💾 Salvar Alterações")
                             if btn_gravar_edicao:
@@ -650,17 +657,24 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                 else:
                                     with strl.spinner("💾 ATUALIZANDO BANCO DE DADOS..."):
                                         try:
+                                            # Lê a base diretamente do arquivo BD.csv detectando o separador
                                             df_planilha = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python', on_bad_lines='skip')
-                                            df_planilha.at[index_linha, "NOME DO ALUNO(A)"] = ed_nome.strip().upper()
-                                            df_planilha.at[index_linha, "Nº DA PASTA"] = ed_pasta.strip().upper()
-                                            df_planilha.at[index_linha, "PASTA ARQUIVO"] = ed_caixa.strip().upper()
-                                            df_planilha.at[index_linha, "ARQUIVO ORIGEM"] = "EDIÇÃO_MANUAL_WEB"
                                             
+                                            # Sobrescreve cirurgicamente os dados baseados no índice absoluto da linha
+                                            df_planilha.at[index_linha, col_aluno_real] = ed_nome.strip().upper()
+                                            df_planilha.at[index_linha, col_pasta_real] = ed_pasta.strip().upper()
+                                            df_planilha.at[index_linha, col_caixa_real] = ed_caixa.strip().upper()
+                                            if "ARQUIVO ORIGEM" in df_planilha.columns:
+                                                df_planilha.at[index_linha, "ARQUIVO ORIGEM"] = "EDIÇÃO_MANUAL_WEB"
+                                            elif "ORIGEM" in df_planilha.columns:
+                                                df_planilha.at[index_linha, "ORIGEM"] = "EDIÇÃO_MANUAL_WEB"
+                                            
+                                            # Salva no disco no formato CSV otimizado de alta velocidade
                                             df_planilha.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
                                             
                                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"ALTEROU CADASTRO DO ALUNO PARA: {ed_nome.strip().upper()}")
-                                            strl.cache_data.clear()
-                                            strl.success("Cadastro atualizado com sucesso!")
+                                            strl.cache_data.clear() # Limpa o cache da RAM
+                                            strl.success("Cadastro updated com sucesso!") if 'Cadastro updated com sucesso!' in locals() else strl.success("Cadastro atualizado com sucesso!")
                                             strl.rerun()
                                         except Exception as err:
                                             strl.error(f"Erro ao salvar edição no arquivo BD.csv: {err}")
@@ -668,21 +682,25 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                         @strl.dialog("🗑️ CONFIRMAR EXCLUSÃO DE REGISTRO")
                         def popup_excluir_aluno(index_linha, dados_aluno):
                             strl.error(f"⚠️ ATENÇÃO: Você está prestes a deletar permanentemente o registro abaixo!")
-                            strl.markdown(f"**Aluno:** {dados_aluno['NOME DO ALUNO(A)']}")
-                            strl.markdown(f"**Escola:** {dados_aluno['UNIDADE ESCOLAR']} | **Pasta:** {dados_aluno['Nº DA PASTA']}")
+                            strl.markdown(f"**Aluno:** {dados_aluno[col_aluno_real]}")
+                            strl.markdown(f"**Escola:** {dados_aluno[col_escola_real]} | **Pasta:** {dados_aluno[col_pasta_real]}")
                             strl.write("Esta ação não poderá ser desfeita na interface web.")
                             
                             strl.markdown("---")
                             if strl.button("🚨 SIM, EXCLUIR DEFINITIVAMENTE", type="primary", use_container_width=True):
                                 with strl.spinner("🗑️ REMOVENDO REGISTRO DO ACERVO..."):
                                     try:
+                                        # Lê a base diretamente do arquivo BD.csv
                                         df_planilha = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python', on_bad_lines='skip')
                                         
-                                        nome_deletado = dados_aluno['NOME DO ALUNO(A)']
-                                        pasta_deletada = dados_aluno['Nº DA PASTA']
-                                        escola_deletada = dados_aluno['UNIDADE ESCOLAR']
+                                        nome_deletado = dados_aluno[col_aluno_real]
+                                        pasta_deletada = dados_aluno[col_pasta_real]
+                                        escola_deletada = dados_aluno[col_escola_real]
                                         
+                                        # Deleta de forma ultra precisa a linha baseada no ID absoluto do CSV
                                         df_planilha = df_planilha.drop(index=index_linha)
+                                        
+                                        # Reescreve o arquivo no disco sem a linha deletada
                                         df_planilha.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
                                         
                                         registrar_log_auditoria(
@@ -690,7 +708,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                             f"EXCLUIU REGISTRO - ALUNO: {nome_deletado} | PASTA: {pasta_deletada} | ESCOLA: {escola_deletada}"
                                         )
                                         
-                                        strl.cache_data.clear()
+                                        strl.cache_data.clear() # Limpa o cache da RAM
                                         strl.success("Registro removido com sucesso!")
                                         strl.rerun()
                                     except Exception as err:
@@ -710,17 +728,6 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
             else:
                 strl.warning("NENHUM ALUNO ENCONTRADO COM ESSE NOME.")
 
-    with col_direita:
-        strl.markdown("### 📊 INDICADORES DO ARQUIVO")
-        if not df_dados.empty:
-            total_alunos = len(df_dados)
-            total_escolas = df_dados["UNIDADE ESCOLAR"].nunique()
-            
-            card_col1, card_col2 = strl.columns(2)
-            with card_col1:
-                strl.metric(label="🏷️ TOTAL DE ALUNOS CADASTRADOS", value=f"{total_alunos:,}".replace(",", "."))
-            with card_col2:
-                strl.metric(label="🏫 ESCOLAS ATENDIDAS", value=total_escolas)
 
 # =======================================================================
 # PARTE 10: 📝 NOVAS PASTAS (FORMULÁRIO DO ALUNO + POP-UP DINÂMICO DE ESCOLA)
@@ -792,7 +799,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
     strl.session_state["escola_selecionada_atual"] = escola_selecionada
 
     with strl.form("form_cadastro_aluno", clear_on_submit=True):
-        # CORREÇÃO: Removido o autofocus que quebrava nas versões antigas e adicionada uma key fixa estável
+        # Identificação única por chave fixa para o script web localizar este campo
         nome_aluno = strl.text_input("2. Nome Completo do Aluno:", placeholder="DIGITE O NOME COMPLETO", key="campo_nome_aluno")
         col1, col2 = strl.columns(2)
         with col1:
@@ -805,7 +812,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
         if salvar:
             escola_ativa = strl.session_state.get("escola_selecionada_atual", "--- SELECIONE ---")
             
-            if school_active := escola_ativa if 'school_active' in locals() else escola_ativa in ["--- SELECIONE ---", "➕ CADASTRAR NOVA ESCOLA"]:
+            if escola_ativa in ["--- SELECIONE ---", "➕ CADASTRAR NOVA ESCOLA"]:
                 strl.error("Por favor, selecione uma Unidade Escolar válida na listagem superior.")
             elif nome_aluno.strip() == "" or numero_pasta.strip() == "" or caixa_arquivo.strip() == "":
                 strl.error("Todos os campos do aluno são obrigatórios.")
@@ -840,11 +847,25 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                         strl.cache_data.clear()
                         registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU O ALUNO: {nome_f} NA PASTA: {pasta_f}")
                         
-                        strl.session_state["escola_selecionada_atual"] = escola_ativa # Mantém a escola para digitação fluida
+                        strl.session_state["escola_selecionada_atual"] = escola_ativa 
                         strl.success(f"✅ Cadastro realizado com sucesso!\n\nAluno: {nome_f}\nEscola: {escola_f}")
                         strl.rerun()
                     except Exception as erro:
                         strl.error(f"Erro ao sincronizar gravação no arquivo BD.csv: {erro}")
+
+    # AUTOMAÇÃO INVISÍVEL VIA JAVASCRIPT: Força o foco no campo de nome a cada recarga da tela
+    strl.components.v1.html(
+        """
+        <script>
+            // Procura o input do Streamlit que possui o placeholder do nome do aluno
+            window.parent.document.querySelectorAll('input[placeholder="DIGITE O NOME COMPLETO"]').forEach(function(el) {
+                setTimeout(function() { el.focus(); }, 100);
+            });
+        </script>
+        """,
+        height=0,
+        width=0
+    )
 
 # =======================================================================
 # PARTE 11: 📥 EXPORTAR DADOS (DOWNLOAD RESTRITO EM EXCEL DE A-Z)
