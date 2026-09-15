@@ -637,27 +637,53 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                             strl.rerun()
                                         except Exception as err:
                                             strl.error(f"Erro ao salvar edição: {err}")
+
+                        @strl.dialog("🗑️ CONFIRMAR EXCLUSÃO DE REGISTRO")
+                        def popup_excluir_aluno(index_linha, dados_aluno):
+                            strl.error(f"⚠️ ATENÇÃO: Você está prestes a deletar permanentemente o registro abaixo!")
+                            strl.markdown(f"**Aluno:** {dados_aluno['NOME DO ALUNO(A)']}")
+                            strl.markdown(f"**Escola:** {dados_aluno['UNIDADE ESCOLAR']} | **Pasta:** {dados_aluno['Nº DA PASTA']}")
+                            strl.write("Esta ação não poderá ser desfeita na interface web.")
+                            
+                            strl.markdown("---")
+                            if strl.button("🚨 SIM, EXCLUIR DEFINITIVAMENTE", type="primary", use_container_width=True):
+                                with strl.spinner("🗑️ REMOVENDO REGISTRO DO ACERVO..."):
+                                    try:
+                                        df_planilha = pd.read_excel(ARQUIVO_EXCEL, sheet_name="BD")
+                                        
+                                        nome_deletado = dados_aluno['NOME DO ALUNO(A)']
+                                        pasta_deletada = dados_aluno['Nº DA PASTA']
+                                        escola_deletada = dados_aluno['UNIDADE ESCOLAR']
+                                        
+                                        df_planilha = df_planilha.drop(index=index_linha)
+                                        
+                                        with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+                                            df_planilha.to_excel(writer, sheet_name="BD", index=False)
+                                            
+                                        registrar_log_auditoria(
+                                            strl.session_state["usuario_nome"], 
+                                            f"EXCLUIU REGISTRO - ALUNO: {nome_deletado} | PASTA: {pasta_deletada} | ESCOLA: {escola_deletada}"
+                                        )
+                                        
+                                        strl.cache_data.clear()
+                                        strl.success("Registro removido com sucesso!")
+                                        strl.rerun()
+                                    except Exception as err:
+                                        strl.error(f"Erro ao processar exclusão no banco de dados: {err}")
                         
                         strl.markdown("---")
                         if strl.session_state["usuario_login"] == "1":
-                            strl.info("💡 OPERADOR NÍVEL 1 (CONSULTA): Seu perfil não possui permissões para alterar registros do acervo.")
+                            strl.info("💡 OPERADOR NÍVEL 1 (CONSULTA): Seu perfil não possui permissões para alterar ou excluir registros do acervo.")
                         else:
-                            if strl.button("✏️ ALTERAR DADOS DO ALUNO SELECIONADO", type="primary"):
-                                popup_editar_aluno(indice_real_excel, aluno_row_data)
+                            btn_col1, btn_col2 = strl.columns(2)
+                            with btn_col1:
+                                if strl.button("✏️ ALTERAR DADOS DO ALUNO SELECIONADO", type="primary", use_container_width=True):
+                                    popup_editar_aluno(indice_real_excel, aluno_row_data)
+                            with btn_col2:
+                                if strl.button("🗑️ EXCLUIR ALUNO SELECIONADO", type="secondary", use_container_width=True):
+                                    popup_excluir_aluno(indice_real_excel, aluno_row_data)
             else:
                 strl.warning("NENHUM ALUNO ENCONTRADO COM ESSE NOME.")
-
-    with col_direita:
-        strl.markdown("### 📊 INDICADORES DO ARQUIVO")
-        if not df_dados.empty:
-            total_alunos = len(df_dados)
-            total_escolas = df_dados["UNIDADE ESCOLAR"].nunique()
-            
-            card_col1, card_col2 = strl.columns(2)
-            with card_col1:
-                strl.metric(label="🏷️ TOTAL DE ALUNOS CADASTRADOS", value=f"{total_alunos:,}".replace(",", "."))
-            with card_col2:
-                strl.metric(label="🏫 ESCOLAS ATENDIDAS", value=total_escolas)
 
 # =======================================================================
 # PARTE 9: 📝 NOVAS PASTAS (FORMULÁRIO DO ALUNO + POP-UP DINÂMICO DE ESCOLA)
