@@ -150,13 +150,14 @@ def popup_solicitar_cadastro():
         elif "@" not in c_user or "." not in c_user:
             strl.error("❌ ERRO: O USUÁRIO DEVE SER OBRIGATORIAMENTE UM E-MAIL VÁLIDO!")
         else:
-            with strl.spinner("GRAVANDO REQUISIÇÃO E SINCRONIZANDO GITHUB..."):
+            with strl.spinner("GRAVANDO REQUISIÇÃO FISICAMENTE NO DISCO..."):
                 try:
-                    # 1. Lê as credenciais locais da sessão atual
+                    # LER DIRETAMENTE DO ARQUIVO FÍSICO LOCAL USER.csv
                     df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python', on_bad_lines='skip')
                     df_usuarios = df_usuarios.fillna("NÃO IDENTIFICADO")
                     df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
                     
+                    # MAPEAMENTO DINÂMICO DE COLUNAS: Garante compatibilidade de títulos
                     colunas_user_reais = list(df_usuarios.columns)
                     col_user_real = next((c for c in colunas_user_reais if "USUÁRIO" in str(c) or "USUARIO" in str(c)), "USUÁRIO")
                     col_nivel_real = next((c for c in colunas_user_reais if "NÍVEL" in str(c) or "NIVEL" in str(c)), "NÍVEL")
@@ -174,6 +175,7 @@ def popup_solicitar_cadastro():
                         elif len(fone_limpo) == 10:
                             fone_formatado = f"({fone_limpo[:2]}) {fone_limpo[2:6]}-{fone_limpo[6:]}"
                         
+                        # Alinha a nova linha usando vetores estáveis para o pandas tabular
                         nova_linha_user = pd.DataFrame({
                             col_user_real: [c_user], 
                             col_senha_real: [c_pass], 
@@ -184,50 +186,14 @@ def popup_solicitar_cadastro():
                         
                         df_user_atualizado = pd.concat([df_usuarios, nova_linha_user], ignore_index=True)
                         
-                        # 2. Salva o arquivo localmente no contêiner da nuvem
-                        df_user_atualizado.to_csv(ARQUIVO_USER_CSV, index=False, sep=",", encoding="utf-8-sig")
-                        
-                        # 3. ROTINA DE ATUALIZAÇÃO AUTOMÁTICA VIA API DO GITHUB
-                        import requests
-                        import base64
-                        
-                        # Configurações do seu repositório (Ajuste o seu usuário e nome do repositório)
-                        GITHUB_TOKEN = "SEU_TOKEN_AQUI_DO_GITHUB" 
-                        REPO_OWNER = "SEU_USUARIO_GITHUB"
-                        REPO_NAME = "caex-sistema"
-                        FILE_PATH = "USER.csv"
-                        
-                        url_api = f"https://github.com{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
-                        headers = {
-                            "Authorization": f"token {GITHUB_TOKEN}",
-                            "Accept": "application/vnd.github.v3+json"
-                        }
-                        
-                        # Coleta o arquivo e o 'sha' atual da linha para o GitHub aceitar a gravação
-                        resposta_sha = requests.get(url_api, headers=headers)
-                        if resposta_sha.status_code == 200:
-                            sha_arquivo = resposta_sha.json()["sha"]
-                            
-                            # Lê o conteúdo recém-atualizado do arquivo local e converte em Base64 para envio
-                            with open(ARQUIVO_USER_CSV, "rb") as f_csv:
-                                conteudo_base64 = base64.b64encode(f_csv.read()).decode("utf-8")
-                            
-                            dados_payload = {
-                                "message": f"🤖 CAEX: Cadastro automático do operador {c_nome}",
-                                "content": conteudo_base64,
-                                "sha": sha_arquivo
-                            }
-                            
-                            # Executa o commit forçado direto no seu repositório do GitHub
-                            requests.put(url_api, headers=headers, json=dados_payload)
+                        # SALVA DIRETAMENTE NO DISCO (USER.csv) usando o PONTO E VÍRGULA oficial do seu acervo
+                        df_user_atualizado.to_csv(ARQUIVO_USER_CSV, index=False, sep=";", encoding="utf-8-sig")
                         
                         registrar_log_auditoria(c_nome, f"CRIOU CONTA PARA O EMAIL: {c_user}")
-                        strl.success("Conta criada e sincronizada com o GitHub com sucesso!")
+                        strl.success("✅ Conta criada e gravada com sucesso no arquivo local USER.csv!")
                         strl.rerun()
                 except Exception as e_c:
                     strl.error(f"Erro ao salvar cadastro no arquivo de usuários: {e_c}")
-
-
 
 # =======================================================================
 # PARTE 4: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
