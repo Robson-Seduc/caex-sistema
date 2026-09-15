@@ -131,6 +131,7 @@ strl.markdown(
     """, 
     unsafe_allow_html=True
 )
+
 # =======================================================================
 # PARTE 3: FORMULÁRIOS FLUTUANTES (POP-UPS) DA TELA DE LOGIN
 # =======================================================================
@@ -160,8 +161,8 @@ def popup_solicitar_cadastro():
                     
                     # MAPEAMENTO DINÂMICO DE COLUNAS: Garante que encontre no USER.csv com ou sem acento
                     colunas_user_reais = list(df_usuarios.columns)
-                    col_user_real = next((c for c in colunas_user_reais if "USUÁRIO" in str(c) or "USUARIO" in str(c)), colunas_user_reais[0])
-                    col_nivel_real = next((c for c in colunas_user_reais if "NÍVEL" in str(c) or "NIVEL" in str(c)), colunas_user_reais[-1])
+                    col_user_real = next((c for c in colunas_user_reais if "USUÁRIO" in str(c) or "USUARIO" in str(c)), "USUÁRIO")
+                    col_nivel_real = next((c for c in colunas_user_reais if "NÍVEL" in str(c) or "NIVEL" in str(c)), "NÍVEL")
                     col_nome_real = next((c for c in colunas_user_reais if "NOME" in str(c)), "NOME")
                     col_senha_real = next((c for c in colunas_user_reais if "SENHA" in str(c)), "SENHA")
                     col_fone_real = next((c for c in colunas_user_reais if "FONE" in str(c) or "CONTATO" in str(c) or "TELEFONE" in str(c)), "FONE")
@@ -177,25 +178,26 @@ def popup_solicitar_cadastro():
                         elif len(fone_limpo) == 10:
                             fone_formatado = f"({fone_limpo[:2]}) {fone_limpo[2:6]}-{fone_limpo[6:]}"
                         
-                        # Monta a nova linha respeitando a nomenclatura real do arquivo CSV
-                        nova_linha_user = pd.DataFrame([{
-                            col_user_real: c_user, 
-                            col_senha_real: c_pass, 
-                            col_nome_real: c_nome, 
-                            col_fone_real: fone_formatado, 
-                            col_nivel_real: "1"
-                        }])
+                        # CORREÇÃO CRÍTICA: Passando os valores dentro de listas [] para o DataFrame alinhar os eixos corretamente
+                        nova_linha_user = pd.DataFrame({
+                            col_user_real: [c_user], 
+                            col_senha_real: [c_pass], 
+                            col_nome_real: [c_nome], 
+                            col_fone_real: [fone_formatado], 
+                            col_nivel_real: ["1"]
+                        })
                         
                         df_user_atualizado = pd.concat([df_usuarios, nova_linha_user], ignore_index=True)
                         
-                        # Salva de volta de forma padronizada usando vírgula compatível com seu BD
+                        # Salva de volta de forma padronizada usando vírgula compatível com o repositório
                         df_user_atualizado.to_csv(ARQUIVO_USER_CSV, index=False, sep=",", encoding="utf-8-sig")
                         
-                        registrar_log_auditoria(c_nome, "CRIOU UMA NOVA CONTA DE ACESSO VIA E-MAIL PESSOAL (NÍVEL 1)")
+                        registrar_log_auditoria(c_nome, f"CRIOU UMA NOVA CONTA DE ACESSO PARA O EMAIL: {c_user}")
                         strl.success("Conta criada com sucesso!")
                         strl.rerun()
                 except Exception as e_c:
                     strl.error(f"Erro ao salvar cadastro no arquivo de usuários: {e_c}")
+
 
 
 # =======================================================================
