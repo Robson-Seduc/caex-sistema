@@ -153,7 +153,6 @@ def popup_solicitar_cadastro():
         else:
             with strl.spinner("Protocolando sua solicitação com o Administrador..."):
                 try:
-                    # Formata o telefone antes de encapsular a mensagem
                     fone_limpo = "".join([char for char in c_fone if char.isdigit()])
                     fone_formatado = c_fone.upper()
                     if len(fone_limpo) == 11:
@@ -161,41 +160,39 @@ def popup_solicitar_cadastro():
                     elif len(fone_limpo) == 10:
                         fone_formatado = f"({fone_limpo[:2]}) {fone_limpo[2:6]}-{fone_limpo[6:]}"
 
-                    # Monta a string técnica de chamado para o Robson ler no C-PANEL/Alertas
-                    # A senha vai explícita e visível na mensagem para permitir o cadastro manual
+                    # Formatação idêntica a um chamado técnico padrão para forçar o Painel a ler
                     mensagem_cadastro_chamado = (
                         f"CHAMADO_SUPORTE | "
-                        f"CATEGORIA: SOLICITAÇÃO DE NOVO ACESSO | "
-                        f"IMPACTO: ALTO (SOLICITANTE SEM ACESSO) | "
+                        f"CATEGORIA: CADASTRO DE USUÁRIO | "
+                        f"IMPACTO: ALTO | "
                         f"ANEXO: NENHUM ANEXO ENVIADO | "
-                        f"DETALHES: CRIAR CONTA MANUAL - NOME: {c_nome} | E-MAIL: {c_user} | SENHA REQUERIDA: {c_pass} | FONE: {fone_formatado}"
+                        f"DETALHES: CRIAR MANUAL - NOME: {c_nome} - EMAIL: {c_user} - SENHA: {c_pass} - FONE: {fone_formatado}"
                     )
 
-
-                    # Lê o arquivo LOG.csv existente mantendo o separador ponto e vírgula oficial
+                    # Abre o LOG com o ponto e vírgula correto
                     df_log_atual = pd.read_csv(ARQUIVO_LOG_CSV, sep=";", engine='python', on_bad_lines='skip')
                     
                     nome_pc = socket.gethostname().upper()
                     usuario_rede = getpass.getuser().upper()
                     
-                    # Cria a linha do chamado técnico no LOG
+                    # CORREÇÃO: Usuário modificado para ROBSON TEIXEIRA para forçar o painel master a listar na própria tela
                     nova_linha_solicitacao = pd.DataFrame([{
                         "DATA": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
                         "PC": nome_pc,
                         "REDE": usuario_rede,
-                        "USUÁRIO /NOME": f"SOLICITANTE: {c_nome}",
+                        "USUÁRIO /NOME": "ROBSON TEIXEIRA",
                         "AÇÃO": mensagem_cadastro_chamado.upper().strip(),
                         "STATUS": "ABERTO"
                     }])
                     
-                    # Combina e salva de volta usando rigorosamente ponto e vírgula (;)
                     df_log_novo = pd.concat([df_log_atual, nova_linha_solicitacao], ignore_index=True)
                     df_log_novo.to_csv(ARQUIVO_LOG_CSV, index=False, sep=";", encoding="utf-8-sig")
                     
-                    strl.success("✅ SOLICITAÇÃO ENVIADA COM SUCESSO! Aguarde o Administrador Master cadastrar sua conta.")
+                    strl.success("✅ SOLICITAÇÃO ENVIADA COM SUCESSO! Entre em contato com o Master para liberação.")
                     strl.rerun()
                 except Exception as e_solicitacao:
                     strl.error(f"Erro crítico ao despachar chamado de cadastro para o arquivo LOG.csv: {e_solicitacao}")
+
 
 # =======================================================================
 # PARTE 4: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
