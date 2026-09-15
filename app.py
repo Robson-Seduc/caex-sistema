@@ -54,6 +54,7 @@ def realizar_backup_automatico():
 
 realizar_backup_automatico()
 
+
 # =======================================================================
 # PARTE 2: MOTORES DE AUDITORIA DE REDE E CARREGADORES DO BANCO DE DADOS
 # =======================================================================
@@ -116,8 +117,10 @@ def carregar_lista_escolas():
     except:
         return []
 
+# Ativa o banco de dados principal de alta velocidade na memória cache baseado em CSV
 df_dados = carregar_dados_bd()
 
+# Desenha o cabeçalho identitário azul
 strl.markdown(
     """
     <div style="background-color:#1e40af; padding:15px; border-radius:10px; margin-bottom:25px;">
@@ -128,7 +131,6 @@ strl.markdown(
     """, 
     unsafe_allow_html=True
 )
-
 
 # =======================================================================
 # PARTE 3: FORMULÁRIOS FLUTUANTES (POP-UPS) DA TELA DE LOGIN
@@ -150,7 +152,6 @@ def popup_solicitar_cadastro():
         else:
             with strl.spinner("GRAVANDO REQUISIÇÃO..."):
                 try:
-                    # Lê as credenciais diretamente do arquivo CSV detectando o delimitador
                     df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python')
                     df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
                     col_user_real = "USUÁRIO" if "USUÁRIO" in df_usuarios.columns else "USUARIO"
@@ -177,8 +178,6 @@ def popup_solicitar_cadastro():
                         }])
                         
                         df_user_atualizado = pd.concat([df_usuarios, nova_linha_user], ignore_index=True)
-                        
-                        # Salva de volta de forma otimizada e compatível em formato CSV plano
                         df_user_atualizado.to_csv(ARQUIVO_USER_CSV, index=False, sep=";", encoding="utf-8-sig")
                         
                         registrar_log_auditoria(c_nome, "CRIOU UMA NOVA CONTA DE ACESSO VIA E-MAIL PESSOAL (NÍVEL 1)")
@@ -204,7 +203,6 @@ def popup_pedir_elevacao():
             strl.error("Todos os campos de validação e justificativa são obrigatórios!")
         else:
             try:
-                # Validação das credenciais do funcionário diretamente no arquivo USER.csv
                 df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python')
                 df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
                 col_user_real = "USUÁRIO" if "USUÁRIO" in df_usuarios.columns else "USUARIO"
@@ -213,13 +211,11 @@ def popup_pedir_elevacao():
                 user_encontrado = df_usuarios[validacao]
                 
                 if not user_encontrado.empty:
-                    # Coleta o nome correto baseado na linha localizada no CSV
                     nome_funcionario = str(user_encontrado.iloc[0]["NOME"]).upper()
                     nivel_alvo = e_nivel[:1]
                     
-                    # Carimba a solicitação de promoção no arquivo LOG.csv
                     mensagem_log_formatada = f"PEDIDO_PENDENTE | NÍVEL SOLICITADO: {nivel_alvo} | JUSTIFICATIVA: {e_just.upper()}"
-                    registrar_log_auditoria(nome_funcionario, message_log_formatada) if 'message_log_formatada' in locals() else registrar_log_auditoria(nome_funcionario, mensagem_log_formatada)
+                    registrar_log_auditoria(nome_funcionario, mensagem_log_formatada)
                     
                     strl.success("✅ REQUERIMENTO PROTOCOLADO COM SUCESSO!")
                     strl.rerun()
@@ -227,7 +223,6 @@ def popup_pedir_elevacao():
                     strl.error("Credenciais inválidas. Verifique seu e-mail e senha atual.")
             except Exception as err_envio:
                 strl.error(f"Erro ao processar requisição no banco de dados: {err_envio}")
-
 # =======================================================================
 # PARTE 5: INTERFACE GRÁFICA DE LOGIN, VALIDAÇÃO E MENUS DA BARRA LATERAL
 # =======================================================================
@@ -343,6 +338,7 @@ tela_selecionada = strl.sidebar.radio(
     opcoes_menu_disponiveis, 
     key="chave_menu"
 )
+
 # =======================================================================
 # PARTE 6: PAINEL DE CONTROLE EXCLUSIVO MASTER - FLUXO 1 (🛠️ C-PANEL)
 # =======================================================================
@@ -356,14 +352,12 @@ if tela_selecionada == "🛠️ C-PANEL":
         strl.stop()
         
     try:
-        # Carrega o histórico técnico diretamente do arquivo LOG.csv
-        df_log_check = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python')
+        df_log_check = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python', on_bad_lines='skip')
         df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
         
         if "STATUS" not in df_log_check.columns:
             df_log_check["STATUS"] = "ABERTO"
             
-        # Filtra apenas os pedidos ativos de alteração de privilégios
         pedidos_pendentes = df_log_check[
             (df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)) &
             (df_log_check["STATUS"].astype(str).str.upper().str.strip() != "CONCLUÍDO")
@@ -372,7 +366,6 @@ if tela_selecionada == "🛠️ C-PANEL":
         if not pedidos_pendentes.empty:
             strl.markdown("#### 📋 FILA DE AVALIAÇÃO DE MUDANÇA DE NÍVEL")
             
-            # CORREÇÃO CRÍTICA: Captura o índice numérico real da linha do arquivo CSV antes de filtrar duplicados
             pedidos_pendentes["INDEX_REAL_EXCEL"] = pedidos_pendentes.index
             pedidos_unicos = pedidos_pendentes.drop_duplicates(subset=["USUÁRIO /NOME"], keep="last")
             
@@ -403,8 +396,7 @@ if tela_selecionada == "🛠️ C-PANEL":
                         
                         if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()}", key=f"aprov_cp_{idx}"):
                             with strl.spinner("Aplicando elevação de nível..."):
-                                # 1. Atualiza as permissões de acesso diretamente no arquivo USER.csv
-                                df_user_master = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python')
+                                df_user_master = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python', on_bad_lines='skip')
                                 df_user_master.columns = [str(c).strip().upper() for c in df_user_master.columns]
                                 col_nivel_ref = "NÍVEL" if "NÍVEL" in df_user_master.columns else "NIVEL"
                                 filtro_mudar = df_user_master["NOME"].astype(str).str.upper().str.strip() == funcionario_pedinte
@@ -412,11 +404,9 @@ if tela_selecionada == "🛠️ C-PANEL":
                                 if filtro_mudar.any():
                                     df_user_master.loc[filtro_mudar, col_nivel_ref] = int(nivel_pedido)
                                     
-                                    # 2. Localiza a linha do chamado no LOG.csv e altera para CONCLUÍDO para sumir das telas
-                                    df_atualizar_log = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python')
+                                    df_atualizar_log = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python', on_bad_lines='skip')
                                     df_atualizar_log.at[indice_original_excel, "STATUS"] = "CONCLUÍDO"
                                     
-                                    # Salva os dois arquivos CSV independentes de volta para o disco
                                     df_user_master.to_csv(ARQUIVO_USER_CSV, index=False, sep=";", encoding="utf-8-sig")
                                     df_atualizar_log.to_csv(ARQUIVO_LOG_CSV, index=False, sep=";", encoding="utf-8-sig")
                                         
@@ -425,12 +415,11 @@ if tela_selecionada == "🛠️ C-PANEL":
                                     strl.cache_data.clear()
                                     strl.rerun()
                                 else:
-                                    strl.error("Funcionário não localizado no banco de dados de usuários (USER.csv).")
+                                    strl.error("Funcionário não localizado no arquivo USER.csv.")
                                     
                         if col_btn2.button(f"❌ Arquivar Pedido", key=f"recus_cp_{idx}"):
                             with strl.spinner("Arquivando solicitação..."):
-                                # Altera o status da linha original absoluta no arquivo LOG.csv
-                                df_atualizar_log = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python')
+                                df_atualizar_log = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python', on_bad_lines='skip')
                                 df_atualizar_log.at[indice_original_excel, "STATUS"] = "CONCLUÍDO"
                                 df_atualizar_log.to_csv(ARQUIVO_LOG_CSV, index=False, sep=";", encoding="utf-8-sig")
                                     
@@ -439,7 +428,8 @@ if tela_selecionada == "🛠️ C-PANEL":
                                 strl.rerun()
             strl.markdown("---")
     except Exception as e_cp_f1:
-        strl.error(f"Erro na varredura do C-PANEL Fluxo 1 (Mudança de Nível): {e_cp_f1}")
+        strl.error(f"Erro na varredura do C-PANEL Fluxo 1: {e_cp_f1}")
+
 # =======================================================================
 # PARTE 7: CENTRAL DE ATENDIMENTO DE CHAMADOS DE SUPORTE (🛠️ C-PANEL)
 # =======================================================================
@@ -519,6 +509,7 @@ if tela_selecionada == "🛠️ C-PANEL":
             
     except Exception as e_cp_global:
         strl.error(f"Erro na varredura analítica do C-PANEL Fluxo 2 (Mural de Chamados): {e_cp_global}")
+
 # =======================================================================
 # PARTE 8: 🏠 PAINEL INICIAL (Notificações Master, Busca e Estatísticas)
 # =======================================================================
@@ -618,17 +609,18 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                 
                 strl.markdown("<small>💡 Dica: Selecione o aluno marcando a linha desejada na tabela abaixo para habilitar o botão de alteração.</small>", unsafe_allow_html=True)
                 selecao = strl.dataframe(tabela_ordenada, width="stretch", hide_index=True, selection_mode="single-row", on_select="rerun")
+
 # =======================================================================
 # PARTE 9: 🏠 PAINEL INICIAL ( BUSCA, EDIÇÃO E EXCLUSÃO NO PAINEL INICIAL)
 # =======================================================================
                 if selecao and "selection" in selecao and selecao["selection"].get("rows"):
-                    idx_linha_selecionada = selecao["selection"]["rows"][0] # Extrai o inteiro da lista de seleção
+                    idx_linha_selecionada = selecao["selection"]["rows"] # Extrai o inteiro da lista de seleção
                     nome_aluno_selecionado = tabela_ordenada.iloc[idx_linha_selecionada]["NOME DO ALUNO"]
                     dados_originais_aluno = resultado_filtro[resultado_filtro["NOME DO ALUNO(A)"] == nome_aluno_selecionado]
                     
                     if not dados_originais_aluno.empty:
-                        indice_real_excel = dados_originais_aluno.index[0] # Garante o índice inteiro escalar do arquivo CSV
-                        aluno_row_data = dados_originais_aluno.iloc[0].to_dict() # Converte para dicionário limpo
+                        indice_real_excel = dados_originais_aluno.index # Garante o índice inteiro escalar do arquivo CSV
+                        aluno_row_data = dados_originais_aluno.iloc.to_dict() # Converte para dicionário limpo
                         
                         @strl.dialog("✏️ ALTERAR DADOS DO ALUNO")
                         def popup_editar_aluno(index_linha, dados_aluno):
@@ -649,20 +641,16 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                 else:
                                     with strl.spinner("💾 ATUALIZANDO BANCO DE DADOS..."):
                                         try:
-                                            # Lê a base diretamente do arquivo BD.csv detectando o separador
-                                            df_planilha = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python')
-                                            
-                                            # Sobrescreve cirurgicamente os dados baseados no índice absoluto da linha
+                                            df_planilha = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python', on_bad_lines='skip')
                                             df_planilha.at[index_linha, "NOME DO ALUNO(A)"] = ed_nome.strip().upper()
                                             df_planilha.at[index_linha, "Nº DA PASTA"] = ed_pasta.strip().upper()
                                             df_planilha.at[index_linha, "PASTA ARQUIVO"] = ed_caixa.strip().upper()
                                             df_planilha.at[index_linha, "ARQUIVO ORIGEM"] = "EDIÇÃO_MANUAL_WEB"
                                             
-                                            # Salva no disco no formato CSV otimizado de alta velocidade
                                             df_planilha.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
                                             
                                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"ALTEROU CADASTRO DO ALUNO PARA: {ed_nome.strip().upper()}")
-                                            strl.cache_data.clear() # Limpa o cache da RAM
+                                            strl.cache_data.clear()
                                             strl.success("Cadastro atualizado com sucesso!")
                                             strl.rerun()
                                         except Exception as err:
@@ -679,17 +667,13 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                             if strl.button("🚨 SIM, EXCLUIR DEFINITIVAMENTE", type="primary", use_container_width=True):
                                 with strl.spinner("🗑️ REMOVENDO REGISTRO DO ACERVO..."):
                                     try:
-                                        # Lê a base diretamente do arquivo BD.csv
-                                        df_planilha = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python')
+                                        df_planilha = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python', on_bad_lines='skip')
                                         
                                         nome_deletado = dados_aluno['NOME DO ALUNO(A)']
                                         pasta_deletada = dados_aluno['Nº DA PASTA']
                                         escola_deletada = dados_aluno['UNIDADE ESCOLAR']
                                         
-                                        # Deleta de forma ultra precisa a linha baseada no ID absoluto do CSV
                                         df_planilha = df_planilha.drop(index=index_linha)
-                                        
-                                        # Reescreve o arquivo no disco sem a linha deletada
                                         df_planilha.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
                                         
                                         registrar_log_auditoria(
@@ -697,7 +681,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                             f"EXCLUIU REGISTRO - ALUNO: {nome_deletado} | PASTA: {pasta_deletada} | ESCOLA: {escola_deletada}"
                                         )
                                         
-                                        strl.cache_data.clear() # Limpa o cache da RAM
+                                        strl.cache_data.clear()
                                         strl.success("Registro removido com sucesso!")
                                         strl.rerun()
                                     except Exception as err:
@@ -716,7 +700,18 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                     popup_excluir_aluno(indice_real_excel, aluno_row_data)
             else:
                 strl.warning("NENHUM ALUNO ENCONTRADO COM ESSE NOME.")
-       strl.error(f"Erro crítico de alta velocidade ao gravar os dados no BD.csv: {erro}")
+
+    with col_direita:
+        strl.markdown("### 📊 INDICADORES DO ARQUIVO")
+        if not df_dados.empty:
+            total_alunos = len(df_dados)
+            total_escolas = df_dados["UNIDADE ESCOLAR"].nunique()
+            
+            card_col1, card_col2 = strl.columns(2)
+            with card_col1:
+                strl.metric(label="🏷️ TOTAL DE ALUNOS CADASTRADOS", value=f"{total_alunos:,}".replace(",", "."))
+            with card_col2:
+                strl.metric(label="🏫 ESCOLAS ATENDIDAS", value=total_escolas)
 
 # =======================================================================
 # PARTE 10: 📝 NOVAS PASTAS (FORMULÁRIO DO ALUNO + POP-UP DINÂMICO DE ESCOLA)
@@ -749,7 +744,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                         coluna_nome = df_escolas.columns
                         escola_final = p_nome.upper().strip()
                         
-                        existe = (df_escolas[coluna_nome].astype(str).str.upper().str.strip() == escola_final).any()
+                        existe = (df_escolas[coluna_nome].astype(str).str.upper().str.strip() == school_final).any() if 'school_final' in locals() else (df_escolas[coluna_nome].astype(str).str.upper().str.strip() == escola_final).any()
 
                         if not existe:
                             nova_linha = pd.DataFrame([{
@@ -784,7 +779,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
         popup_cadastrar_escola()
         strl.stop()
 
-    strl.sidebar.markdown("---") # Visual complementar interno
+    strl.sidebar.markdown("---") 
     strl.session_state["escola_selecionada_atual"] = escola_selecionada
 
     with strl.form("form_cadastro_aluno", clear_on_submit=True):
@@ -822,7 +817,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                         caixa_f = caixa_arquivo.upper().strip()
                         
                         nova_linha_aluno = pd.DataFrame([{
-                            col_escola: escola_f, 
+                            col_escola: school_f if 'school_f' in locals() else escola_f, 
                             col_aluno: nome_f, 
                             col_pasta: pasta_f, 
                             col_caixa: caixa_f, 
@@ -913,7 +908,7 @@ if tela_selecionada == "📥 EXPORTAR DADOS":
                     col_pasta = next((c for c in colunas_disponiveis if "PASTA" in str(c).upper() and "ARQUIVO" not in str(c).upper()), colunas_disponiveis[2])
                     col_caixa = next((c for c in colunas_disponiveis if "ARQUIVO" in str(c).upper() or "CAIXA" in str(c).upper()), colunas_disponiveis[3])
 
-                    alunos_filtrados = df_dados[df_dados[col_escola] == school_target if 'school_target' in locals() else df_dados[col_escola] == escola_alvo].copy()
+                    alunos_filtrados = df_dados[df_dados[col_escola] == escola_alvo].copy()
                     relatorio_final = alunos_filtrados[[col_aluno, col_escola, col_pasta, col_caixa]].copy()
                     relatorio_final.columns = ["NOME DO ALUNO", "UNIDADE ESCOLAR", "Nº PASTA", "PASTA ARQUIVO"]
                     relatorio_final = relatorio_final.sort_values(by="NOME DO ALUNO", ascending=True)
@@ -940,7 +935,6 @@ if tela_selecionada == "📥 EXPORTAR DADOS":
                         strl.warning("Não existem alunos cadastrados para esta escola no momento.")
                 except Exception as e_export:
                     strl.error(f"Erro ao gerar o arquivo de download por escola: {e_export}")
-
 
 # =======================================================================
 # PARTE 12: 🛠️ SUPORTE - ABRIR CHAMADO (EXCLUSIVO NÍVEL 1 E 2)
@@ -1011,7 +1005,6 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                         
                         mensagem_chamado_log = f"CHAMADO_SUPORTE | CATEGORIA: {categoria_problema} | IMPACTO: {impacto_trabalho.upper()} | ANEXO: {nome_arquivo_salvo} | DETALHES: {descricao_detalhada.upper().strip()}"
                         
-                        # Carrega o arquivo LOG.csv existente detectando o separador original
                         df_log_atual = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python')
                         
                         nome_pc = socket.gethostname().upper()
@@ -1027,18 +1020,14 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                         }])
                         
                         df_log_novo = pd.concat([df_log_atual, nova_linha_chamado], ignore_index=True)
-                        
-                        # Escreve o chamado técnico de forma definitiva no arquivo LOG.csv
                         df_log_novo.to_csv(ARQUIVO_LOG_CSV, index=False, sep=";", encoding="utf-8-sig")
                         
-                        # Ativa a flag de sucesso do Streamlit
                         strl.session_state["chamado_sucesso"] = True
                         strl.rerun()
                         
                     except Exception as e_chamado:
                         strl.error(f"Erro crítico ao processar o envio do chamado técnico no arquivo LOG.csv: {e_chamado}")
 
-# Ouvinte externo: Se a flag de redirecionamento for verdadeira, dispara o brinde visual na tela
 if "chamado_sucesso" in strl.session_state and strl.session_state["chamado_sucesso"] == True:
     strl.toast("✅ Chamado registrado com sucesso!", icon="📥")
     strl.session_state["chamado_sucesso"] = False
