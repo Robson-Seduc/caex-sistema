@@ -796,7 +796,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
 
         salvar = strl.form_submit_button("💾 SALVAR CADASTRO")
 
-        if salvar:
+         if salvar:
             escola_ativa = strl.session_state.get("escola_selecionada_atual", "--- SELECIONE ---")
             
             if escola_ativa in ["--- SELECIONE ---", "➕ CADASTRAR NOVA ESCOLA"]:
@@ -804,10 +804,12 @@ if tela_selecionada == "📝 NOVAS PASTAS":
             elif nome_aluno.strip() == "" or numero_pasta.strip() == "" or caixa_arquivo.strip() == "":
                 strl.error("Todos os campos do aluno são obrigatórios.")
             else:
-                with strl.spinner("📝 PROCESSANDO BANCO DE DADOS..."):
+                with strl.spinner("📝 GRAVANDO E SINCRONIZANDO BANCO DE DADOS..."):
                     try:
+                        # Força a leitura física do arquivo direto do disco para evitar perdas
                         df_bd = pd.read_excel(ARQUIVO_EXCEL, sheet_name="BD")
                         escola_formatada_final = escola_ativa.upper().strip()
+                        
                         nova_linha_aluno = pd.DataFrame([{
                             "UNIDADE ESCOLAR": escola_formatada_final, 
                             "NOME DO ALUNO(A)": nome_aluno.upper().strip(), 
@@ -815,18 +817,24 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                             "PASTA ARQUIVO": caixa_arquivo.upper().strip(), 
                             "ARQUIVO ORIGEM": "CADASTRO_MANUAL"
                         }])
+                        
                         df_bd = pd.concat([df_bd, nova_linha_aluno], ignore_index=True)
+                        
+                        # GRAVAÇÃO FORÇADA: Salva e fecha o arquivo explicitamente
                         with pd.ExcelWriter(ARQUIVO_EXCEL, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
                             df_bd.to_excel(writer, sheet_name="BD", index=False)
-
-                        strl.session_state["escola_selecionada_atual"] = "--- SELECIONE ---"
+                        
+                        # Limpa rigorosamente todo o cache do sistema para obrigar a reler do HD
+                        strl.cache_data.clear()
+                        
                         registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU O ALUNO: {nome_aluno.upper().strip()} NA PASTA: {numero_pasta.upper().strip()}")
                         
-                        strl.cache_data.clear()
-                        strl.success(f"Cadastro realizado com sucesso!\n\nAluno: {nome_aluno.upper()}\nEscola: {escola_ativa.upper()}")
+                        strl.session_state["escola_selecionada_atual"] = "--- SELECIONE ---"
+                        strl.success(f"✅ Cadastro realizado e salvo em disco!\n\nAluno: {nome_aluno.upper()}\nEscola: {escola_ativa.upper()}")
                         strl.rerun()
                     except Exception as erro:
-                        strl.error(f"Erro ao gravar os dados do aluno:\n\n{erro}")
+                        strl.error(f"Erro crítico ao gravar os dados do aluno:\n\n{erro}")
+
 
 
 
