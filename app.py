@@ -785,7 +785,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                                 "Contato": p_contato.upper().strip()
                             }])
                             df_escolas = pd.concat([df_escolas, nova_linha], ignore_index=True)
-                            df_escolas.to_csv(ARQUIVO_ESCOLAS_CSV, index=False, sep=",", encoding="utf-8-sig")
+                            df_escolas.to_csv(ARQUIVO_ESCOLAS_CSV, index=False, sep=";", encoding="utf-8-sig")
                             
                             strl.session_state["escola_selecionada_atual"] = escola_final
                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU NOVA UNIDADE ESCOLAR: {escola_final}")
@@ -867,7 +867,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                             }])
                             
                             df_consolidado = pd.concat([df_bd_original, nova_linha_aluno], ignore_index=True)
-                            df_consolidado.to_csv(ARQUIVO_BD_CSV, index=False, sep=",", encoding="utf-8-sig")
+                            df_consolidado.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
                             
                             strl.cache_data.clear()
                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU O ALUNO: {nome_f} NA PASTA: {pasta_f}")
