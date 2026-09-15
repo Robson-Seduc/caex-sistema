@@ -265,19 +265,26 @@ if not strl.session_state["autenticado"]:
         else:
             try:
                 # Carrega a tabela de usuários a partir do arquivo USER.csv
-                df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python')
+                df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python', on_bad_lines='skip')
                 df_usuarios = df_usuarios.fillna("NÃO IDENTIFICADO")
+                
+                # Normaliza todas as colunas para letras maiúsculas tirando espaços extras
                 df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
                 
-                col_user_real = "USUÁRIO" if "USUÁRIO" in df_usuarios.columns else "USUARIO"
-                col_nivel_real = "NÍVEL" if "NÍVEL" in df_usuarios.columns else "NIVEL"
+                # Identifica as colunas dinamicamente para evitar o KeyError
+                colunas_user_reais = list(df_usuarios.columns)
+                col_user_real = next((c for c in colunas_user_reais if "USUÁRIO" in str(c) or "USUARIO" in str(c)), colunas_user_reais[0])
+                col_nivel_real = next((c for c in colunas_user_reais if "NÍVEL" in str(c) or "NIVEL" in str(c)), colunas_user_reais[-1])
+                col_nome_real = next((c for c in colunas_user_reais if "NOME" in str(c)), "NOME")
+                col_senha_real = next((c for c in colunas_user_reais if "SENHA" in str(c)), "SENHA")
                 
                 filtro_user = (df_usuarios[col_user_real].astype(str).str.strip().str.upper() == u_clean) & \
-                              (df_usuarios["SENHA"].astype(str).str.strip() == s_clean)
+                              (df_usuarios[col_senha_real].astype(str).str.strip() == s_clean)
                 usuario_valido = df_usuarios[filtro_user]
                 
                 if not usuario_valido.empty:
-                    nome_real = str(usuario_valido.iloc[0]["NOME"]).upper().strip()
+                    # CORREÇÃO CRÍTICA: Adicionado o .iloc[0] para capturar a primeira linha localizada no CSV
+                    nome_real = str(usuario_valido.iloc[0][col_nome_real]).upper().strip()
                     nivel_acesso = str(usuario_valido.iloc[0][col_nivel_real]).strip()
                     
                     legendas_nivel = {"1": "1 - CONSULTA (RESTRITO)", "2": "2 - EDITOR (PROMOVIDO)", "3": "3 - ADMINISTRADOR (TOTAL)"}
@@ -337,6 +344,8 @@ tela_selecionada = strl.sidebar.radio(
     "Selecione a operação desejada:", 
     opcoes_menu_disponiveis, 
     key="chave_menu"
+)
+
 )
 
 # =======================================================================
