@@ -137,29 +137,64 @@ strl.markdown(
 # PARTE 3: FORMULÁRIOS FLUTUANTES (POP-UPS) DA TELA DE LOGIN
 # =======================================================================
 
-@strl.dialog("📝 COMPLEMENTO DE CADASTRO - NOVO USUÁRIO")
+@strl.dialog("📝 SOLICITAR CADASTRO DE ACESSO")
 def popup_solicitar_cadastro():
-    c_user = strl.text_input("Defina o Usuário (Seu E-mail Pessoal):").strip().upper()
-    c_pass = strl.text_input("Defina a Senha:", type="password").strip()
-    c_nome = strl.text_input("Nome Completo:").strip().upper()
-    c_fone = strl.text_input("Telefone / Contato:").strip()
+    strl.markdown("Preencha os dados abaixo. Sua solicitação será enviada diretamente para a fila de aprovação do Administrador Master.")
+    c_user = strl.text_input("Defina seu E-mail de Usuário:", placeholder="EXEMPLO@EMAIL.COM").strip().upper()
+    c_pass = strl.text_input("Defina sua Senha de Acesso:", type="password", placeholder="DIGITE UMA SENHA SEGURA").strip()
+    c_nome = strl.text_input("Seu Nome Completo:").strip().upper()
+    c_fone = strl.text_input("Telefone / Contato:", placeholder="EX: 62933005329").strip()
     
-    # 1. O GATILHO DO CLIQUE
-    if strl.button("💾 Enviar Solicitação de Cadastro"):
-        # 2. A VALIDAÇÃO
+    if strl.button("🚀 Enviar Solicitação para o Master"):
         if not c_user or not c_pass or not c_nome:
-            strl.error("❌ ERRO: PREENCHA OS CAMPOS OBRIGATÓRIOS!")
+            strl.error("❌ ERRO: OS CAMPOS USUÁRIO, SENHA E NOME SÃO OBRIGATÓRIOS!")
+        elif "@" not in c_user or "." not in c_user:
+            strl.error("❌ ERRO: O USUÁRIO DEVE SER OBRIGATORIAMENTE UN E-MAIL VÁLIDO!")
         else:
-            try:
-                # 3. A GRAVAÇÃO MECÂNICA DIRETA EM PONTO E VÍRGULA
-                with open("USER.csv", mode="a", encoding="utf-8-sig") as arquivo:
-                    arquivo.write(f"\n{c_user};{c_pass};{c_nome};{c_fone};1")
-                
-                strl.success("✅ Usuário gravado com sucesso em disco!")
-                strl.rerun()
-            except Exception as e:
-                strl.error(f"Erro físico de escrita: {e}")
+            with strl.spinner("Protocolando sua solicitação com o Administrador..."):
+                try:
+                    # Formata o telefone antes de encapsular a mensagem
+                    fone_limpo = "".join([char for char in c_fone if char.isdigit()])
+                    fone_formatado = c_fone.upper()
+                    if len(fone_limpo) == 11:
+                        fone_formatado = f"({fone_limpo[:2]}) {fone_limpo[2:7]}-{fone_limpo[7:]}"
+                    elif len(fone_limpo) == 10:
+                        fone_formatado = f"({fone_limpo[:2]}) {fone_limpo[2:6]}-{fone_limpo[6:]}"
 
+                    # Monta a string técnica de chamado para o Robson ler no C-PANEL/Alertas
+                    # A senha vai explícita e visível na mensagem para permitir o cadastro manual
+                    mensagem_cadastro_chamado = (
+                        f"CHAMADO_SUPORTE | "
+                        f"CATEGORIA: SOLICITAÇÃO DE NOVO ACESSO | "
+                        f"IMPACTO: ALTO (SOLICITANTE SEM ACESSO) | "
+                        f"ANEXO: NENHUM ANEXO ENVIADO | "
+                        f"DETALHES: CRIAR CONTA MANUAL - NOME: {c_nome} | E-MAIL: {c_user} | SENHA REQUERIDA: {c_pass} | FONE: {fone_formatado}"
+                    )
+
+                    # Lê o arquivo LOG.csv existente mantendo o separador ponto e vírgula oficial
+                    df_log_atual = pd.read_csv(ARQUIVO_LOG_CSV, sep=";", engine='python', on_bad_lines='skip')
+                    
+                    nome_pc = socket.gethostname().upper()
+                    usuario_rede = getpass.getuser().upper()
+                    
+                    # Cria a linha do chamado técnico no LOG
+                    nova_linha_solicitacao = pd.DataFrame([{
+                        "DATA": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                        "PC": nome_pc,
+                        "REDE": usuario_rede,
+                        "USUÁRIO /NOME": f"SOLICITANTE: {c_nome}",
+                        "AÇÃO": mensagem_cadastro_chamado.upper().strip(),
+                        "STATUS": "ABERTO"
+                    }])
+                    
+                    # Combina e salva de volta usando rigorosamente ponto e vírgula (;)
+                    df_log_novo = pd.concat([df_log_atual, nova_linha_solicitacao], ignore_index=True)
+                    df_log_novo.to_csv(ARQUIVO_LOG_CSV, index=False, sep=";", encoding="utf-8-sig")
+                    
+                    strl.success("✅ SOLICITAÇÃO ENVIADA COM SUCESSO! Aguarde o Administrador Master cadastrar sua conta.")
+                    strl.rerun()
+                except Exception as e_solicitacao:
+                    strl.error(f"Erro crítico ao despachar chamado de cadastro para o arquivo LOG.csv: {e_solicitacao}")
 
 # =======================================================================
 # PARTE 4: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
