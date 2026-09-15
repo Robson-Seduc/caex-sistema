@@ -843,6 +843,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                         strl.rerun()
                     except Exception as erro:
                         strl.error(f"Erro crítico de alta velocidade ao gravar os dados no BD.csv: {erro}")
+
 # =======================================================================
 # PARTE 11: 📥 EXPORTAR DADOS (DOWNLOAD RESTRITO EM EXCEL DE A-Z)
 # =======================================================================
@@ -863,12 +864,20 @@ if tela_selecionada == "📥 EXPORTAR DADOS":
             strl.write(f"Clique no botão abaixo para gerar uma planilha unificada contendo todos os **{total_geral_linhas:,}** registros salvos no sistema CAEX.".replace(",", "."))
             
             try:
-                # Carrega e organiza todo o banco de dados de alunos por ordem alfabética
-                df_geral_ordenado = df_dados[["NOME DO ALUNO(A)", "UNIDADE ESCOLAR", "Nº DA PASTA", "PASTA ARQUIVO"]].copy()
+                # Mapeamento dinâmico e inteligente para encontrar as colunas mesmo se mudarem de nome no CSV
+                colunas_disponiveis = list(df_dados.columns)
+                
+                col_aluno = next((c for c in colunas_disponiveis if "ALUNO" in str(c).upper()), colunas_disponiveis[0])
+                col_escola = next((c for c in colunas_disponiveis if "ESCOLA" in str(c).upper() or "UNIDADE" in str(c).upper()), colunas_disponiveis[1])
+                col_pasta = next((c for c in colunas_disponiveis if "PASTA" in str(c).upper() and "ARQUIVO" not in str(c).upper()), colunas_disponiveis[2])
+                col_caixa = next((c for c in colunas_disponiveis if "ARQUIVO" in str(c).upper() or "CAIXA" in str(c).upper()), colunas_disponiveis[3])
+
+                # Extrai os dados usando as colunas identificadas dinamicamente
+                df_geral_ordenado = df_dados[[col_aluno, col_escola, col_pasta, col_caixa]].copy()
                 df_geral_ordenado.columns = ["NOME DO ALUNO", "UNIDADE ESCOLAR", "Nº PASTA", "PASTA ARQUIVO"]
                 df_geral_ordenado = df_geral_ordenado.sort_values(by="NOME DO ALUNO", ascending=True)
                 
-                # Prepara o download em formato Excel na memória RAM para conveniência dos operadores
+                # Prepara o download em formato Excel na memória RAM
                 output_geral = io.BytesIO()
                 with pd.ExcelWriter(output_geral, engine='openpyxl') as writer_geral:
                     df_geral_ordenado.to_excel(writer_geral, sheet_name="ACERVO_TOTAL", index=False)
@@ -900,17 +909,24 @@ if tela_selecionada == "📥 EXPORTAR DADOS":
             escola_alvo = strl.selectbox("Selecione a Escola que deseja exportar:", ["--- SELECIONE UMA ESCOLA ---"] + lista_escolas_exportar)
             
             if escola_alvo != "--- SELECIONE UMA ESCOLA ---":
-                alunos_filtrados = df_dados[df_dados["UNIDADE ESCOLAR"] == escola_alvo].copy()
-                relatorio_final = alunos_filtrados[["NOME DO ALUNO(A)", "UNIDADE ESCOLAR", "Nº DA PASTA", "PASTA ARQUIVO"]].copy()
-                relatorio_final.columns = ["NOME DO ALUNO", "UNIDADE ESCOLAR", "Nº PASTA", "PASTA ARQUIVO"]
-                relatorio_final = relatorio_final.sort_values(by="NOME DO ALUNO", ascending=True)
-                
-                total_filtrado = len(relatorio_final)
-                strl.markdown(f"**Total de alunos localizados para esta instituição:** {total_filtrado} registros.")
-                
-                if total_filtrado > 0:
-                    strl.dataframe(relatorio_final, width="stretch", hide_index=True)
-                    try:
+                try:
+                    colunas_disponiveis = list(df_dados.columns)
+                    col_aluno = next((c for c in colunas_disponiveis if "ALUNO" in str(c).upper()), colunas_disponiveis[0])
+                    col_escola = next((c for c in colunas_disponiveis if "ESCOLA" in str(c).upper() or "UNIDADE" in str(c).upper()), colunas_disponiveis[1])
+                    col_pasta = next((c for c in colunas_disponiveis if "PASTA" in str(c).upper() and "ARQUIVO" not in str(c).upper()), colunas_disponiveis[2])
+                    col_caixa = next((c for c in colunas_disponiveis if "ARQUIVO" in str(c).upper() or "CAIXA" in str(c).upper()), colunas_disponiveis[3])
+
+                    alunos_filtrados = df_dados[df_dados[col_escola] == school_target if 'school_target' in locals() else df_dados[col_escola] == escola_alvo].copy()
+                    relatorio_final = alunos_filtrados[[col_aluno, col_escola, col_pasta, col_caixa]].copy()
+                    relatorio_final.columns = ["NOME DO ALUNO", "UNIDADE ESCOLAR", "Nº PASTA", "PASTA ARQUIVO"]
+                    relatorio_final = relatorio_final.sort_values(by="NOME DO ALUNO", ascending=True)
+                    
+                    total_filtrado = len(relatorio_final)
+                    strl.markdown(f"**Total de alunos localizados para esta instituição:** {total_filtrado} registros.")
+                    
+                    if total_filtrado > 0:
+                        strl.dataframe(relatorio_final, width="stretch", hide_index=True)
+                        
                         output = io.BytesIO()
                         with pd.ExcelWriter(output, engine='openpyxl') as writer:
                             relatorio_final.to_excel(writer, sheet_name="ALUNOS", index=False)
@@ -923,10 +939,12 @@ if tela_selecionada == "📥 EXPORTAR DADOS":
                             file_name=nome_arquivo_baixado,
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                         )
-                    except Exception as e_export:
-                        strl.error(f"Erro ao gerar o arquivo de download por escola: {e_export}")
-                else:
-                    strl.warning("Não existem alunos cadastrados para esta escola no momento.")
+                    else:
+                        strl.warning("Não existem alunos cadastrados para esta escola no momento.")
+                except Exception as e_export:
+                    strl.error(f"Erro ao gerar o arquivo de download por escola: {e_export}")
+
+
 # =======================================================================
 # PARTE 12: 🛠️ SUPORTE - ABRIR CHAMADO (EXCLUSIVO NÍVEL 1 E 2)
 # =======================================================================
