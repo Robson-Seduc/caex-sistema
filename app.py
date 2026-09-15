@@ -139,61 +139,27 @@ strl.markdown(
 
 @strl.dialog("📝 COMPLEMENTO DE CADASTRO - NOVO USUÁRIO")
 def popup_solicitar_cadastro():
-    strl.markdown("Insira os dados abaixo para criar uma conta de acesso. **O usuário deve ser o seu e-mail pessoal.**")
     c_user = strl.text_input("Defina o Usuário (Seu E-mail Pessoal):").strip().upper()
     c_pass = strl.text_input("Defina a Senha:", type="password").strip()
     c_nome = strl.text_input("Nome Completo:").strip().upper()
-    c_fone = strl.text_input("Telefone / Contato:", placeholder="EX: 62933005329").strip()
+    c_fone = strl.text_input("Telefone / Contato:").strip()
     
+    # 1. O GATILHO DO CLIQUE
     if strl.button("💾 Enviar Solicitação de Cadastro"):
+        # 2. A VALIDAÇÃO
         if not c_user or not c_pass or not c_nome:
-            strl.error("❌ ERRO: OS CAMPOS USUÁRIO, SENHA E NOME SÃO OBRIGATÓRIOS!")
-        elif "@" not in c_user or "." not in c_user:
-            strl.error("❌ ERRO: O USUÁRIO DEVE SER OBRIGATORIAMENTE UM E-MAIL VÁLIDO!")
+            strl.error("❌ ERRO: PREENCHA OS CAMPOS OBRIGATÓRIOS!")
         else:
-            with strl.spinner("GRAVANDO NOVO USUÁRIO EM DISCO..."):
-                try:
-                    # Lê o arquivo direto apontando para "USER.csv" no ponto e vírgula correto
-                    df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=";", engine='python', on_bad_lines='skip', encoding="utf-8-sig")
-                    
-                    # Padroniza títulos idênticos à foto do seu Excel
-                    df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
-                    
-                    col_user = "USUÁRIO" if "USUÁRIO" in df_usuarios.columns else "USUARIO"
-                    col_senha = "SENHA"
-                    col_nome = "NOME"
-                    col_fone = "FONE"
-                    col_nivel = "NIVEL"
-                    
-                    # Bloqueia e-mails repetidos
-                    if (df_usuarios[col_user].astype(str).str.upper().str.strip() == c_user).any():
-                        strl.warning("Este e-mail de usuário já está cadastrado no sistema!")
-                    else:
-                        fone_limpo = "".join([char for char in c_fone if char.isdigit()])
-                        fone_formatado = c_fone.upper()
-                        if len(fone_limpo) == 11:
-                            fone_formatado = f"({fone_limpo[:2]}) {fone_limpo[2:7]}-{fone_limpo[7:]}"
-                        elif len(fone_limpo) == 10:
-                            fone_formatado = f"({fone_limpo[:2]}) {fone_limpo[2:6]}-{fone_limpo[6:]}"
-                        
-                        # Monta a nova linha alinhando chaves e tipos com o Excel
-                        nova_linha_user = pd.DataFrame([{
-                            col_user: c_user,
-                            col_senha: c_pass,
-                            col_nome: c_nome,
-                            col_fone: fone_formatado,
-                            col_nivel: int(1)
-                        }])
-                        
-                        # Combina e reescreve em formato físico com ponto e vírgula
-                        df_consolidado_user = pd.concat([df_usuarios, nova_linha_user], ignore_index=True)
-                        df_consolidado_user.to_csv(ARQUIVO_USER_CSV, index=False, sep=";", encoding="utf-8-sig")
-                        
-                        registrar_log_auditoria(c_nome, f"CRIOU CONTA PARA O EMAIL: {c_user}")
-                        strl.success("✅ Usuário cadastrado com sucesso e gravado em disco!")
-                        strl.rerun()
-                except Exception as erro_gravacao:
-                    strl.error(f"Erro crítico ao registrar usuário no arquivo USER.csv: {erro_gravacao}")
+            try:
+                # 3. A GRAVAÇÃO MECÂNICA DIRETA EM PONTO E VÍRGULA
+                with open("USER.csv", mode="a", encoding="utf-8-sig") as arquivo:
+                    arquivo.write(f"\n{c_user};{c_pass};{c_nome};{c_fone};1")
+                
+                strl.success("✅ Usuário gravado com sucesso em disco!")
+                strl.rerun()
+            except Exception as e:
+                strl.error(f"Erro físico de escrita: {e}")
+
 
 # =======================================================================
 # PARTE 4: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
