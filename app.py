@@ -622,30 +622,30 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
 # PARTE 9: 🏠 PAINEL INICIAL ( BUSCA, EDIÇÃO E EXCLUSÃO NO PAINEL INICIAL)
 # =======================================================================
                 if selecao and "selection" in selecao and selecao["selection"].get("rows"):
-                    idx_linha_selecionada = selecao["selection"]["rows"] # Extrai a posição numérica selecionada
+                    idx_linha_selecionada = selecao["selection"]["rows"][0] # CORREÇÃO: Pega o primeiro índice numérico inteiro da lista de seleção
                     
-                    # CORREÇÃO DEFINITIVA: Extrai os dados de forma isolada diretamente da linha selecionada
+                    # Extrai os dados de forma isolada diretamente da linha selecionada na tabela ordenada
                     linha_tabela = tabela_ordenada.iloc[idx_linha_selecionada]
                     nome_aluno_selecionado = str(linha_tabela["NOME DO ALUNO"]).strip().upper()
                     escola_aluno_selecionado = str(linha_tabela["UNIDADE ESCOLAR"]).strip().upper()
                     
                     # Identifica dinamicamente os nomes das colunas reais no CSV
                     colunas_reais_bd = list(resultado_filtro.columns)
-                    col_aluno_real = next((c for c in colunas_reais_bd if "ALUNO" in str(c).upper()), colunas_reais_bd)
-                    col_escola_real = next((c for c in colunas_reais_bd if "ESCOLA" in str(c).upper() or "UNIDADE" in str(c).upper()), colunas_reais_bd)
-                    col_pasta_real = next((c for c in colunas_reais_bd if "PASTA" in str(c).upper() and "ARQUIVO" not in str(c).upper()), colunas_reais_bd)
-                    col_caixa_real = next((c for c in colunas_reais_bd if "ARQUIVO" in str(c).upper() or "CAIXA" in str(c).upper()), colunas_reais_bd)
+                    col_aluno_real = next((c for c in colunas_reais_bd if "ALUNO" in str(c).upper()), colunas_reais_bd[0])
+                    col_escola_real = next((c for c in colunas_reais_bd if "ESCOLA" in str(c).upper() or "UNIDADE" in str(c).upper()), colunas_reais_bd[1])
+                    col_pasta_real = next((c for c in colunas_reais_bd if "PASTA" in str(c).upper() and "ARQUIVO" not in str(c).upper()), colunas_reais_bd[2])
+                    col_caixa_real = next((c for c in colunas_reais_bd if "ARQUIVO" in str(c).upper() or "CAIXA" in str(c).upper()), colunas_reais_bd[3])
 
-                    # Filtra cruzando Aluno E Escola para obter um registro único e limpo, sem conflito de Series
+                    # Filtra cruzando Aluno E Escola para obter um registro único e limpo
                     dados_originais_aluno = resultado_filtro[
                         (resultado_filtro[col_aluno_real].astype(str) == nome_aluno_selecionado) & 
                         (resultado_filtro[col_escola_real].astype(str) == escola_aluno_selecionado)
                     ]
                     
                     if not dados_originais_aluno.empty:
-                        # CORREÇÃO CRÍTICA: Extrai o número do índice puro como um valor escalar do Pandas
-                        indice_real_excel = int(dados_originais_aluno.index)
-                        aluno_row_data = dados_originais_aluno.iloc.to_dict() # Converte para dicionário isolado
+                        # CORREÇÃO DEFINITIVA: Usa .index[0] para extrair o valor inteiro puro e escalar sem dar quebra de tipo
+                        indice_real_excel = int(dados_originais_aluno.index[0])
+                        aluno_row_data = dados_originais_aluno.iloc[0].to_dict() # CORREÇÃO: Transforma a primeira linha em dicionário limpo
                         
                         @strl.dialog("✏️ ALTERAR DADOS DO ALUNO")
                         def popup_editar_aluno(index_linha, dados_aluno):
