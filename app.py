@@ -155,24 +155,28 @@ def popup_solicitar_cadastro():
                 try:
                     import os
                     
-                    # CORREÇÃO CRÍTICA LINUX: Localiza o arquivo USER independentemente de estar .csv ou .CSV
+                    # Localiza dinamicamente o nome exato do arquivo no Linux (USER.csv ou USER.CSV)
                     arquivo_alvo_user = ARQUIVO_USER_CSV
-                    arquivos_no_diretorio = os.listdir(".")
-                    for arq in arquivos_no_diretorio:
+                    for arq in os.listdir("."):
                         if arq.upper() == "USER.CSV":
                             arquivo_alvo_user = arq
                             break
                     
-                    # 1. LER COM UTF-8-SIG PARA EXTERMINAR O CARACTERE OCULTO DO EXCEL
+                    # Lê o arquivo tratando o caractere oculto do Excel com utf-8-sig
                     df_usuarios = pd.read_csv(arquivo_alvo_user, sep=";", engine='python', on_bad_lines='skip', encoding="utf-8-sig")
-                    df_usuarios = df_usuarios.fillna("NÃO IDENTIFICADO")
+                    
+                    # Garante que as colunas fiquem idênticas à imagem (maiúsculas e sem espaços)
                     df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
                     
-                    colunas_user_reais = list(df_usuarios.columns)
-                    col_user_real = next((c for c in colunas_user_reais if "USUÁRIO" in str(c) or "USUARIO" in str(c)), "USUÁRIO")
+                    # Definição exata das colunas baseada estritamente na imagem enviada
+                    col_user = "USUÁRIO" if "USUÁRIO" in df_usuarios.columns else "USUARIO"
+                    col_senha = "SENHA"
+                    col_nome = "NOME"
+                    col_fone = "FONE"
+                    col_nivel = "NIVEL"
                     
-                    # Verifica se o e-mail digitado já existe na base de dados
-                    if (df_usuarios[col_user_real].astype(str).str.upper().str.strip() == c_user).any():
+                    # Checagem de segurança para não cadastrar duplicados
+                    if (df_usuarios[col_user].astype(str).str.upper().str.strip() == c_user).any():
                         strl.warning("Este e-mail de usuário já está cadastrado no sistema!")
                     else:
                         fone_limpo = "".join([char for char in c_fone if char.isdigit()])
@@ -182,16 +186,26 @@ def popup_solicitar_cadastro():
                         elif len(fone_limpo) == 10:
                             fone_formatado = f"({fone_limpo[:2]}) {fone_limpo[2:6]}-{fone_limpo[6:]}"
                         
-                        # 2. GRAVAÇÃO DIRETA EM MODO APPEND (TEXTO PURO EM DISCO)
-                        # Abre o arquivo com o nome exato detectado e adiciona a nova linha
-                        with open(arquivo_alvo_user, mode="a", encoding="utf-8-sig") as arquivo_txt:
-                            arquivo_txt.write(f"\n{c_user};{c_pass};{c_nome};{fone_formatado};1")
+                        # Alinhamento perfeito: Cria a nova linha mapeando os mesmos títulos e tipos da imagem
+                        # O campo NIVEL recebe o valor inteiro 1 (int) combinando perfeitamente com o 2 da imagem
+                        nova_linha_user = pd.DataFrame([{
+                            col_user: c_user,
+                            col_senha: c_pass,
+                            col_nome: c_nome,
+                            col_fone: fone_formatado,
+                            col_nivel: int(1)
+                        }])
+                        
+                        # Combina as tabelas e força a reescrita estruturada com ponto e vírgula
+                        df_consolidado_user = pd.concat([df_usuarios, nova_linha_user], ignore_index=True)
+                        df_consolidado_user.to_csv(arquivo_alvo_user, index=False, sep=";", encoding="utf-8-sig")
                         
                         registrar_log_auditoria(c_nome, f"CRIOU CONTA PARA O EMAIL: {c_user}")
-                        strl.success("✅ Usuário registrado com sucesso e eternizado em disco!")
+                        strl.success("✅ Usuário cadastrado com sucesso e gravado em disco!")
                         strl.rerun()
                 except Exception as erro_gravacao:
                     strl.error(f"Erro crítico ao registrar usuário no arquivo USER.csv: {erro_gravacao}")
+
 
 # =======================================================================
 # PARTE 4: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
