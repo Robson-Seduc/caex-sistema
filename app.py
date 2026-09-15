@@ -761,7 +761,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
         btn_salvar_escola = strl.button("💾 Salvar Escola no Acervo")
         if btn_salvar_escola:
             if p_nome.strip() == "":
-                strl.error("O nome da escola é maioritário.") if 'O nome da escola é maioritário.' in locals() else strl.error("O nome da escola é obrigatório.")
+                strl.error("O nome da escola é obrigatório.")
             else:
                 with strl.spinner("💾 GRAVANDO NOVA ESCOLA NO ACERVO..."):
                     try:
@@ -842,17 +842,16 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                         caixa_f = caixa_arquivo.upper().strip()
                         
                         # -----------------------------------------------------------------------
-                        # TRAVA DE SEGURANÇA CONTRA PASTAS DUPLICADAS NA MESMA ESCOLA
+                        # TRAVA DE SEGURANÇA INTELIGENTE: Bloqueia apenas o mesmo ALUNO na mesma ESCOLA com a mesma PASTA
                         # -----------------------------------------------------------------------
-                        filtro_pasta_duplicada = (df_bd_original[col_escola].astype(str).str.upper().str.strip() == escola_f) & \
-                                                 (df_bd_original[col_pasta].astype(str).str.upper().str.strip() == pasta_f)
+                        filtro_duplicado_real = (df_bd_original[col_aluno].astype(str).str.upper().str.strip() == nome_f) & \
+                                                (df_bd_original[col_escola].astype(str).str.upper().str.strip() == escola_f) & \
+                                                (df_bd_original[col_pasta].astype(str).str.upper().str.strip() == pasta_f)
                         
-                        if filtro_pasta_duplicada.any():
-                            # Localiza quem é o aluno que já está usando aquela pasta para avisar o operador
-                            aluno_existente = df_bd_original[filtro_pasta_duplicada].iloc[0][col_aluno]
-                            strl.error(f"❌ IMPOSSÍVEL SALVAR: A Pasta Nº **{pasta_f}** já está ocupada nesta escola pelo aluno **{aluno_existente}**!")
+                        if filtro_duplicado_real.any():
+                            strl.error(f"❌ IMPOSSÍVEL SALVAR: O registro do aluno **{nome_f}** com a Pasta Nº **{pasta_f}** já consta cadastrado nesta instituição!")
                         else:
-                            # Se a pasta estiver livre, prossegue com o cadastro normal
+                            # Executa o salvamento legítimo liberando os números repetidos de outros alunos
                             nova_linha_aluno = pd.DataFrame([{
                                 col_escola: escola_f, 
                                 col_aluno: nome_f, 
