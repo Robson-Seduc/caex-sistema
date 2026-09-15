@@ -746,7 +746,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                 with strl.spinner("💾 GRAVANDO NOVA ESCOLA NO ACERVO..."):
                     try:
                         df_escolas = pd.read_csv(ARQUIVO_ESCOLAS_CSV, sep=None, engine='python', on_bad_lines='skip')
-                        coluna_nome = df_escolas.columns[0]
+                        coluna_nome = df_escolas.columns
                         escola_final = p_nome.upper().strip()
                         
                         existe = (df_escolas[coluna_nome].astype(str).str.upper().str.strip() == escola_final).any()
@@ -761,7 +761,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                             df_escolas = pd.concat([df_escolas, nova_linha], ignore_index=True)
                             df_escolas.to_csv(ARQUIVO_ESCOLAS_CSV, index=False, sep=";", encoding="utf-8-sig")
                             
-                            strl.session_state["escola_selecionada_atual"] = school_final if 'school_final' in locals() else escola_final
+                            strl.session_state["escola_selecionada_atual"] = escola_final
                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU NOVA UNIDADE ESCOLAR: {escola_final}")
                             
                             strl.cache_data.clear()
@@ -806,10 +806,8 @@ if tela_selecionada == "📝 NOVAS PASTAS":
             else:
                 with strl.spinner("⚡ GRAVANDO E PADRONIZANDO BANCO DE DADOS..."):
                     try:
-                        # 1. Lê a base atual capturando o separador correto automaticamente
                         df_bd_original = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python', on_bad_lines='skip')
                         
-                        # Detecta dinamicamente os nomes exatos das colunas atuais da tabela
                         colunas_reais = list(df_bd_original.columns)
                         col_escola = next((c for c in colunas_reais if "ESCOLA" in str(c).upper() or "UNIDADE" in str(c).upper()), "UNIDADE ESCOLAR")
                         col_aluno = next((c for c in colunas_reais if "ALUNO" in str(c).upper()), "NOME DO ALUNO(A)")
@@ -817,13 +815,11 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                         col_caixa = next((c for c in colunas_reais if "ARQUIVO" in str(c).upper() or "CAIXA" in str(c).upper()), "PASTA ARQUIVO")
                         col_origem = next((c for c in colunas_reais if "ORIGEM" in str(c).upper()), "ARQUIVO ORIGEM")
 
-                        # Formata os novos dados
                         escola_f = escola_ativa.upper().strip()
                         nome_f = nome_aluno.upper().strip()
                         pasta_f = numero_pasta.upper().strip()
                         caixa_f = caixa_arquivo.upper().strip()
                         
-                        # Cria o DataFrame alinhado com os nomes reais das colunas detectadas
                         nova_linha_aluno = pd.DataFrame([{
                             col_escola: escola_f, 
                             col_aluno: nome_f, 
@@ -832,7 +828,6 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                             col_origem: "CADASTRO_MANUAL"
                         }])
                         
-                        # Combina e reescreve de forma limpa e unificada
                         df_consolidado = pd.concat([df_bd_original, nova_linha_aluno], ignore_index=True)
                         df_consolidado.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
                         
@@ -844,6 +839,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                         strl.rerun()
                     except Exception as erro:
                         strl.error(f"Erro ao sincronizar gravação no arquivo BD.csv: {erro}")
+
 
 # =======================================================================
 # PARTE 11: 📥 EXPORTAR DADOS (DOWNLOAD RESTRITO EM EXCEL DE A-Z)
