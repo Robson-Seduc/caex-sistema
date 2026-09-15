@@ -518,7 +518,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
     if strl.session_state["usuario_login"] == "3":
         try:
             # Leitura direta do arquivo LOG.csv para garantir notificações em tempo real
-            df_log_check = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python')
+            df_log_check = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python', on_bad_lines='skip')
             df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
             
             if "STATUS" not in df_log_check.columns:
@@ -598,7 +598,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
         if termo_busca:
             termo_upper = termo_busca.strip().upper()
             
-            # CORREÇÃO CRÍTICA: Identifica o nome real da coluna de aluno dinamicamente no CSV
+            # Mapeia dinamicamente os nomes reais das colunas no arquivo CSV de alunos
             colunas_reais_bd = list(df_dados.columns)
             col_aluno_real = next((c for c in colunas_reais_bd if "ALUNO" in str(c).upper()), colunas_reais_bd[0])
             col_escola_real = next((c for c in colunas_reais_bd if "ESCOLA" in str(c).upper() or "UNIDADE" in str(c).upper()), colunas_reais_bd[1])
@@ -618,13 +618,14 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                 strl.markdown("<small>💡 Dica: Selecione o aluno marcando a linha desejada na tabela abaixo para habilitar o botão de alteração.</small>", unsafe_allow_html=True)
                 selecao = strl.dataframe(tabela_ordenada, width="stretch", hide_index=True, selection_mode="single-row", on_select="rerun")
 
+
 # =======================================================================
 # PARTE 9: 🏠 PAINEL INICIAL ( BUSCA, EDIÇÃO E EXCLUSÃO NO PAINEL INICIAL)
 # =======================================================================
                 if selecao and "selection" in selecao and selecao["selection"].get("rows"):
-                    idx_linha_selecionada = selecao["selection"]["rows"][0] # Captura a posição exata clicada na tabela da tela
+                    idx_linha_selecionada = selecao["selection"]["rows"][0] # CORREÇÃO: Pega o primeiro valor inteiro puro da seleção
                     
-                    # Extrai os dados isolados da linha que você clicou na tela
+                    # Extrai os dados isolados da linha clicada na tabela ordenada
                     linha_tabela = tabela_ordenada.iloc[idx_linha_selecionada]
                     nome_aluno_selecionado = str(linha_tabela["NOME DO ALUNO"]).strip().upper()
                     escola_aluno_selecionado = str(linha_tabela["UNIDADE ESCOLAR"]).strip().upper()
@@ -638,7 +639,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                     col_pasta_real = next((c for c in colunas_reais_bd if "PASTA" in str(c).upper() and "ARQUIVO" not in str(c).upper()), colunas_reais_bd[2])
                     col_caixa_real = next((c for c in colunas_reais_bd if "ARQUIVO" in str(c).upper() or "CAIXA" in str(c).upper()), colunas_reais_bd[3])
 
-                    # Localiza o registro exato cruzando TODAS as informações da linha clicada
+                    # Localiza o registro exato cruzando TODAS as informações da linha clicada (seguro contra duplicados)
                     dados_originais_aluno = resultado_filtro[
                         (resultado_filtro[col_aluno_real].astype(str) == nome_aluno_selecionado) & 
                         (resultado_filtro[col_escola_real].astype(str) == escola_aluno_selecionado) &
@@ -647,9 +648,9 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                     ]
                     
                     if not dados_originais_aluno.empty:
-                        # CORREÇÃO CRÍTICA: Pega o primeiro índice que bate com todos os critérios (seguro contra duplicados)
+                        # CORREÇÃO CRÍTICA: Captura o número inteiro puro escalar do índice da linha do CSV
                         indice_real_excel = int(dados_originais_aluno.index[0])
-                        aluno_row_data = dados_originais_aluno.iloc[0].to_dict() 
+                        aluno_row_data = dados_originais_aluno.iloc[0].to_dict() # CORREÇÃO CRÍTICA: Converte a linha pura para dicionário
                         
                         @strl.dialog("✏️ ALTERAR DADOS DO ALUNO")
                         def popup_editar_aluno(index_linha, dados_aluno):
@@ -670,8 +671,10 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                 else:
                                     with strl.spinner("💾 ATUALIZANDO BANCO DE DADOS..."):
                                         try:
+                                            # Carrega o arquivo físico do disco
                                             df_planilha = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python', on_bad_lines='skip')
                                             
+                                            # Gravação cirúrgica usando o número inteiro puro do índice mapeado
                                             df_planilha.at[index_linha, col_aluno_real] = ed_nome.strip().upper()
                                             df_planilha.at[index_linha, col_pasta_real] = ed_pasta.strip().upper()
                                             df_planilha.at[index_linha, col_caixa_real] = ed_caixa.strip().upper()
@@ -680,10 +683,11 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                             if col_origem_real:
                                                 df_planilha.at[index_linha, col_origem_real] = "EDIÇÃO_MANUAL_WEB"
                                             
+                                            # Força a reescrita física e o fechamento do arquivo no HD virtual
                                             df_planilha.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
                                             
                                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"ALTEROU CADASTRO DO ALUNO PARA: {ed_nome.strip().upper()}")
-                                            strl.cache_data.clear()
+                                            strl.cache_data.clear() # Limpa a memória cache do Streamlit
                                             strl.success("Cadastro atualizado com sucesso!")
                                             strl.rerun()
                                         except Exception as err:
@@ -706,6 +710,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                         pasta_deletada = dados_aluno[col_pasta_real]
                                         escola_deletada = dados_aluno[col_escola_real]
                                         
+                                        # Remove a linha fisicamente usando o índice inteiro puro
                                         df_planilha = df_planilha.drop(index=index_linha)
                                         df_planilha.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
                                         
@@ -733,6 +738,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                     popup_excluir_aluno(indice_real_excel, aluno_row_data)
             else:
                 strl.warning("NENHUM ALUNO ENCONTRADO COM ESSE NOME.")
+
 
 
 # =======================================================================
