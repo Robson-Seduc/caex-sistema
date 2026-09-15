@@ -512,40 +512,60 @@ if tela_selecionada == "🛠️ C-PANEL":
 # PARTE 8: 🏠 PAINEL INICIAL (Notificações Master, Busca e Estatísticas)
 # =======================================================================
 
+# =======================================================================
+# PARTE 8: 🏠 PAINEL INICIAL (Notificações Master, Busca e Estatísticas)
+# =======================================================================
+
 if tela_selecionada == "🏠 PAINEL INICIAL":
+    # Central de Alertas exclusiva para o Administrador Master (Nível 3)
     if strl.session_state["usuario_login"] == "3":
         try:
+            # Força leitura direta sem cache fixo para limpar a notificação imediatamente após a conclusão
             df_log_check = pd.read_excel(ARQUIVO_EXCEL, sheet_name="LOG")
             df_log_check.columns = [str(c).strip().upper() for c in df_log_check.columns]
             
-            # Alerta Tipo 1: Pedidos de Promoção de Nível
-            pedidos_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)]
+            if "STATUS" not in df_log_check.columns:
+                df_log_check["STATUS"] = "ABERTO"
+            
+            # Alerta Tipo 1: Pedidos de Promoção de Nível (Ignora se o STATUS for CONCLUÍDO)
+            pedidos_pendentes = df_log_check[
+                (df_log_check["AÇÃO"].str.contains("PEDIDO_PENDENTE", na=False)) &
+                (df_log_check["STATUS"].astype(str).str.upper().str.strip() != "CONCLUÍDO")
+            ]
+            
             if not pedidos_pendentes.empty:
                 pedidos_unicos = pedidos_pendentes.drop_duplicates(subset=["USUÁRIO /NOME"], keep="last")
                 for idx, linha_pedido in pedidos_unicos.iterrows():
                     funcionario_pedinte = str(linha_pedido["USUÁRIO /NOME"]).upper().strip()
                     detalhes_acao = str(linha_pedido["AÇÃO"])
                     data_pedido = linha_pedido["DATA"]
+                    
+                    # Checagem dupla na aba de usuários
+                    df_user_real = pd.read_excel(ARQUIVO_EXCEL, sheet_name="USER")
+                    df_user_real.columns = [str(c).strip().upper() for c in df_user_real.columns]
+                    filtro_liberado = df_user_real["NOME"].astype(str).str.upper().str.strip() == funcionario_pedinte
+                    
                     partes_pedido = detalhes_acao.split("|")
-                    if len(partes_pedido) >= 3:
-                        nivel_pedido = ""
-                        for it_p in partes_pedido:
-                            if "NÍVEL SOLICITADO:" in it_p.upper():
-                                nivel_pedido = it_p.upper().replace("NÍVEL SOLICITADO:", "").strip()
-                        strl.warning(f"""
-                            ⚠️ **MUDANÇA DE NÍVEL PENDENTE ({data_pedido})**  
-                            O funcionário **{funcionario_pedinte}** solicitou promoção para o **NÍVEL {nivel_pedido}**.  
-                            *Instruções: Para avaliar ou aprovar, acesse a aba '🛠️ C-PANEL' no menu lateral.*
-                        """)
+                    nivel_pedido = "2"
+                    for it_p in partes_pedido:
+                        if "NÍVEL SOLICITADO:" in it_p.upper():
+                            nivel_pedido = it_p.upper().replace("NÍVEL SOLICITADO:", "").strip()
+                            
+                    # Se o nível já mudou no banco, damos baixa automática
+                    if filtro_liberado.any() and str(df_user_real.loc[filtro_liberado, "NÍVEL"].iloc[0]).strip() == str(nivel_pedido):
+                        continue
                         
-            # Busca os chamados considerando se a coluna STATUS é igual a ABERTO
-            if "STATUS" in df_log_check.columns:
-                chamados_pendentes = df_log_check[
-                    (df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)) & 
-                    (df_log_check["STATUS"].astype(str).str.upper().str.strip() == "ABERTO")
-                ]
-            else:
-                chamados_pendentes = df_log_check[df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)]
+                    strl.warning(f"""
+                        ⚠️ **MUDANÇA DE NÍVEL PENDENTE ({data_pedido})**  
+                        O funcionário **{funcionario_pedinte}** solicitou promoção para o **NÍVEL {nivel_pedido}**.  
+                        *Instruções: Para avaliar ou aprovar, acesse a aba '🛠️ C-PANEL' no menu lateral.*
+                    """)
+                        
+            # Alerta Tipo 2: Chamados Técnicos (Filtra rigorosamente apenas os ABERTOS)
+            chamados_pendentes = df_log_check[
+                (df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)) & 
+                (df_log_check["STATUS"].astype(str).str.upper().str.strip() == "ABERTO")
+            ]
                 
             if not chamados_pendentes.empty:
                 chamados_unicos = chamados_pendentes.drop_duplicates(subset=["DATA", "USUÁRIO /NOME"], keep="last")
@@ -565,7 +585,9 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                             *Instruções: Para ler o relatório do erro, abrir o anexo e encerrar o ticket, abra a aba '🛠️ C-PANEL'.*
                         """)
             
-            if not pedidos_pendentes.empty or not chamados_pendentes.empty:
+            # Linha divisória dinâmica limpa se houver chamados ou pedidos pendentes reais na tela
+            chamados_visiveis = df_log_check[(df_log_check["AÇÃO"].str.contains("CHAMADO_SUPORTE", na=False)) & (df_log_check["STATUS"] == "ABERTO")]
+            if not pedidos_pendentes.empty or not chamados_visiveis.empty:
                 strl.markdown("---")
         except:
             pass
