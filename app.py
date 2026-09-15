@@ -284,9 +284,9 @@ if not strl.session_state["autenticado"]:
                 usuario_valido = df_usuarios[filtro_user]
                 
                 if not usuario_valido.empty:
-                    # CORREÇÃO DEFINITIVA: Corrigido o fechamento do iloc posicional usando os colchetes corretos
-                    nome_real = str(usuario_valido.iloc[0][col_nome_real]).upper().strip()
-                    nivel_acesso = str(usuario_valido.iloc[0][col_nivel_real]).strip()
+                    # CORREÇÃO DEFINITIVA DE SINTAXE: Coleta o valor puro da primeira linha do vetor sem conflito de iloc
+                    nome_real = str(usuario_valido[col_nome_real].values[0]).upper().strip()
+                    nivel_acesso = str(usuario_valido[col_nivel_real].values[0]).strip()
                     
                     legendas_nivel = {"1": "1 - CONSULTA (RESTRITO)", "2": "2 - EDITOR (PROMOVIDO)", "3": "3 - ADMINISTRADOR (TOTAL)"}
                     nivel_legenda = legendas_nivel.get(nivel_acesso, f"{nivel_acesso} - DESCONHECIDO")
