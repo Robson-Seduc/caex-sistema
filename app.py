@@ -16,7 +16,7 @@ strl.set_page_config(page_title="CAEX - Sistema Integrado", layout="wide", page_
 # Mapeamento exato dos novos arquivos CSV independentes no repositório do projeto
 ARQUIVO_BD_CSV = "BD.csv"
 ARQUIVO_ESCOLAS_CSV = "ESCOLAS.csv"
-ARQUIVO_USER_CSV = "USER.csv"
+USER = "USER.csv"
 ARQUIVO_LOG_CSV = "LOG.csv"
 
 # CONFIGURAÇÃO INTERNA E FIXA DA CONTA MASTER DO DIRETOR
@@ -153,7 +153,7 @@ def popup_solicitar_cadastro():
             with strl.spinner("GRAVANDO NOVO USUÁRIO EM DISCO..."):
                 try:
                     # 1. LER COM UTF-8-SIG PARA EXTERMINAR O CARACTERE OCULTO DO EXCEL
-                    df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=";", engine='python', on_bad_lines='skip', encoding="utf-8-sig")
+                    df_usuarios = pd.read_csv(USER, sep=";", engine='python', on_bad_lines='skip', encoding="utf-8-sig")
                     df_usuarios = df_usuarios.fillna("NÃO IDENTIFICADO")
                     df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
                     
@@ -173,7 +173,7 @@ def popup_solicitar_cadastro():
                         
                         # 2. GRAVAÇÃO DIRETA E CIRÚRGICA EM MODO APPEND (TEXTO PURO EM DISCO)
                         # Abre o arquivo local no final e injeta a linha formatada com ponto e vírgula nativo
-                        with open(ARQUIVO_USER_CSV, mode="a", encoding="utf-8-sig") as arquivo_txt:
+                        with open(USER, mode="a", encoding="utf-8-sig") as arquivo_txt:
                             # Adiciona uma quebra de linha de segurança e a linha de dados nova
                             arquivo_txt.write(f"\n{c_user};{c_pass};{c_nome};{fone_formatado};1")
                         
@@ -201,7 +201,7 @@ def popup_pedir_elevacao():
             strl.error("Todos os campos de validação e justificativa são obrigatórios!")
         else:
             try:
-                df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python')
+                df_usuarios = pd.read_csv(USER, sep=None, engine='python')
                 df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
                 col_user_real = "USUÁRIO" if "USUÁRIO" in df_usuarios.columns else "USUARIO"
                 
@@ -264,7 +264,7 @@ if not strl.session_state["autenticado"]:
         else:
             try:
                 # Carrega a tabela de usuários a partir do arquivo USER.csv
-                df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python', on_bad_lines='skip')
+                df_usuarios = pd.read_csv(USER, sep=None, engine='python', on_bad_lines='skip')
                 df_usuarios = df_usuarios.fillna("NÃO IDENTIFICADO")
                 
                 # Normaliza todas as colunas para letras maiúsculas tirando espaços extras
@@ -403,7 +403,7 @@ if tela_selecionada == "🛠️ C-PANEL":
                         
                         if col_btn1.button(f"✅ Aprovar {funcionario_pedinte.split()}", key=f"aprov_cp_{idx}"):
                             with strl.spinner("Aplicando elevação de nível..."):
-                                df_user_master = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python', on_bad_lines='skip')
+                                df_user_master = pd.read_csv(USER, sep=None, engine='python', on_bad_lines='skip')
                                 df_user_master.columns = [str(c).strip().upper() for c in df_user_master.columns]
                                 col_nivel_ref = "NÍVEL" if "NÍVEL" in df_user_master.columns else "NIVEL"
                                 filtro_mudar = df_user_master["NOME"].astype(str).str.upper().str.strip() == funcionario_pedinte
@@ -414,7 +414,7 @@ if tela_selecionada == "🛠️ C-PANEL":
                                     df_atualizar_log = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python', on_bad_lines='skip')
                                     df_atualizar_log.at[indice_original_excel, "STATUS"] = "CONCLUÍDO"
                                     
-                                    df_user_master.to_csv(ARQUIVO_USER_CSV, index=False, sep=",", encoding="utf-8-sig")
+                                    df_user_master.to_csv(USER, index=False, sep=",", encoding="utf-8-sig")
                                     df_atualizar_log.to_csv(ARQUIVO_LOG_CSV, index=False, sep=",", encoding="utf-8-sig")
                                         
                                     registrar_log_auditoria("ROBSON TEIXEIRA", f"APROVOU VIA C-PANEL O FUNCIONÁRIO {funcionario_pedinte} PARA O NÍVEL {nivel_pedido}")
@@ -545,7 +545,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                     data_pedido = linha_pedido["DATA"]
                     
                     # Checagem dupla no banco USER.csv para evitar alertas fantasmas se já foi promovido
-                    df_user_real = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python')
+                    df_user_real = pd.read_csv(USER, sep=None, engine='python')
                     df_user_real.columns = [str(c).strip().upper() for c in df_user_real.columns]
                     filtro_liberado = df_user_real["NOME"].astype(str).str.upper().str.strip() == funcionario_pedinte
                     
