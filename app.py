@@ -153,8 +153,18 @@ def popup_solicitar_cadastro():
         else:
             with strl.spinner("GRAVANDO NOVO USUÁRIO EM DISCO..."):
                 try:
+                    import os
+                    
+                    # CORREÇÃO CRÍTICA LINUX: Localiza o arquivo USER independentemente de estar .csv ou .CSV
+                    arquivo_alvo_user = ARQUIVO_USER_CSV
+                    arquivos_no_diretorio = os.listdir(".")
+                    for arq in arquivos_no_diretorio:
+                        if arq.upper() == "USER.CSV":
+                            arquivo_alvo_user = arq
+                            break
+                    
                     # 1. LER COM UTF-8-SIG PARA EXTERMINAR O CARACTERE OCULTO DO EXCEL
-                    df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=";", engine='python', on_bad_lines='skip', encoding="utf-8-sig")
+                    df_usuarios = pd.read_csv(arquivo_alvo_user, sep=";", engine='python', on_bad_lines='skip', encoding="utf-8-sig")
                     df_usuarios = df_usuarios.fillna("NÃO IDENTIFICADO")
                     df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
                     
@@ -172,10 +182,9 @@ def popup_solicitar_cadastro():
                         elif len(fone_limpo) == 10:
                             fone_formatado = f"({fone_limpo[:2]}) {fone_limpo[2:6]}-{fone_limpo[6:]}"
                         
-                        # 2. GRAVAÇÃO DIRETA E CIRÚRGICA EM MODO APPEND (TEXTO PURO EM DISCO)
-                        # Abre o arquivo local no final e injeta a linha formatada com ponto e vírgula nativo
-                        with open(ARQUIVO_USER_CSV, mode="a", encoding="utf-8-sig") as arquivo_txt:
-                            # Adiciona uma quebra de linha de segurança e a linha de dados nova
+                        # 2. GRAVAÇÃO DIRETA EM MODO APPEND (TEXTO PURO EM DISCO)
+                        # Abre o arquivo com o nome exato detectado e adiciona a nova linha
+                        with open(arquivo_alvo_user, mode="a", encoding="utf-8-sig") as arquivo_txt:
                             arquivo_txt.write(f"\n{c_user};{c_pass};{c_nome};{fone_formatado};1")
                         
                         registrar_log_auditoria(c_nome, f"CRIOU CONTA PARA O EMAIL: {c_user}")
@@ -183,7 +192,6 @@ def popup_solicitar_cadastro():
                         strl.rerun()
                 except Exception as erro_gravacao:
                     strl.error(f"Erro crítico ao registrar usuário no arquivo USER.csv: {erro_gravacao}")
-
 
 # =======================================================================
 # PARTE 4: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
