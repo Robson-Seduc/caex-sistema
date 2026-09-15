@@ -622,21 +622,30 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
 # PARTE 9: 🏠 PAINEL INICIAL ( BUSCA, EDIÇÃO E EXCLUSÃO NO PAINEL INICIAL)
 # =======================================================================
                 if selecao and "selection" in selecao and selecao["selection"].get("rows"):
-                    idx_linha_selecionada = selecao["selection"]["rows"] # Extrai o inteiro da lista de seleção
-                    nome_aluno_selecionado = tabela_ordenada.iloc[idx_linha_selecionada]["NOME DO ALUNO"]
+                    idx_linha_selecionada = selecao["selection"]["rows"] # Extrai a posição numérica selecionada
                     
-                    # CORREÇÃO CRÍTICA: Identifica dinamicamente a coluna de aluno real do arquivo para evitar o KeyError
+                    # CORREÇÃO DEFINITIVA: Extrai os dados de forma isolada diretamente da linha selecionada
+                    linha_tabela = tabela_ordenada.iloc[idx_linha_selecionada]
+                    nome_aluno_selecionado = str(linha_tabela["NOME DO ALUNO"]).strip().upper()
+                    escola_aluno_selecionado = str(linha_tabela["UNIDADE ESCOLAR"]).strip().upper()
+                    
+                    # Identifica dinamicamente os nomes das colunas reais no CSV
                     colunas_reais_bd = list(resultado_filtro.columns)
                     col_aluno_real = next((c for c in colunas_reais_bd if "ALUNO" in str(c).upper()), colunas_reais_bd)
                     col_escola_real = next((c for c in colunas_reais_bd if "ESCOLA" in str(c).upper() or "UNIDADE" in str(c).upper()), colunas_reais_bd)
                     col_pasta_real = next((c for c in colunas_reais_bd if "PASTA" in str(c).upper() and "ARQUIVO" not in str(c).upper()), colunas_reais_bd)
                     col_caixa_real = next((c for c in colunas_reais_bd if "ARQUIVO" in str(c).upper() or "CAIXA" in str(c).upper()), colunas_reais_bd)
 
-                    dados_originais_aluno = resultado_filtro[resultado_filtro[col_aluno_real] == nome_aluno_selecionado]
+                    # Filtra cruzando Aluno E Escola para obter um registro único e limpo, sem conflito de Series
+                    dados_originais_aluno = resultado_filtro[
+                        (resultado_filtro[col_aluno_real].astype(str) == nome_aluno_selecionado) & 
+                        (resultado_filtro[col_escola_real].astype(str) == escola_aluno_selecionado)
+                    ]
                     
                     if not dados_originais_aluno.empty:
-                        indice_real_excel = dados_originais_aluno.index # Garante o índice inteiro escalar do arquivo CSV
-                        aluno_row_data = dados_originais_aluno.iloc.to_dict() # Converte para dicionário limpo
+                        # CORREÇÃO CRÍTICA: Extrai o número do índice puro como um valor escalar do Pandas
+                        indice_real_excel = int(dados_originais_aluno.index)
+                        aluno_row_data = dados_originais_aluno.iloc.to_dict() # Converte para dicionário isolado
                         
                         @strl.dialog("✏️ ALTERAR DADOS DO ALUNO")
                         def popup_editar_aluno(index_linha, dados_aluno):
@@ -657,24 +666,21 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                 else:
                                     with strl.spinner("💾 ATUALIZANDO BANCO DE DADOS..."):
                                         try:
-                                            # Lê a base diretamente do arquivo BD.csv detectando o separador
                                             df_planilha = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python', on_bad_lines='skip')
                                             
-                                            # Sobrescreve cirurgicamente os dados baseados no índice absoluto da linha
                                             df_planilha.at[index_linha, col_aluno_real] = ed_nome.strip().upper()
                                             df_planilha.at[index_linha, col_pasta_real] = ed_pasta.strip().upper()
                                             df_planilha.at[index_linha, col_caixa_real] = ed_caixa.strip().upper()
-                                            if "ARQUIVO ORIGEM" in df_planilha.columns:
-                                                df_planilha.at[index_linha, "ARQUIVO ORIGEM"] = "EDIÇÃO_MANUAL_WEB"
-                                            elif "ORIGEM" in df_planilha.columns:
-                                                df_planilha.at[index_linha, "ORIGEM"] = "EDIÇÃO_MANUAL_WEB"
                                             
-                                            # Salva no disco no formato CSV otimizado de alta velocidade
+                                            col_origem_real = next((c for c in df_planilha.columns if "ORIGEM" in str(c).upper()), None)
+                                            if col_origem_real:
+                                                df_planilha.at[index_linha, col_origem_real] = "EDIÇÃO_MANUAL_WEB"
+                                            
                                             df_planilha.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
                                             
                                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"ALTEROU CADASTRO DO ALUNO PARA: {ed_nome.strip().upper()}")
-                                            strl.cache_data.clear() # Limpa o cache da RAM
-                                            strl.success("Cadastro updated com sucesso!") if 'Cadastro updated com sucesso!' in locals() else strl.success("Cadastro atualizado com sucesso!")
+                                            strl.cache_data.clear()
+                                            strl.success("Cadastro atualizado com sucesso!")
                                             strl.rerun()
                                         except Exception as err:
                                             strl.error(f"Erro ao salvar edição no arquivo BD.csv: {err}")
@@ -690,17 +696,13 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                             if strl.button("🚨 SIM, EXCLUIR DEFINITIVAMENTE", type="primary", use_container_width=True):
                                 with strl.spinner("🗑️ REMOVENDO REGISTRO DO ACERVO..."):
                                     try:
-                                        # Lê a base diretamente do arquivo BD.csv
                                         df_planilha = pd.read_csv(ARQUIVO_BD_CSV, sep=None, engine='python', on_bad_lines='skip')
                                         
                                         nome_deletado = dados_aluno[col_aluno_real]
                                         pasta_deletada = dados_aluno[col_pasta_real]
                                         escola_deletada = dados_aluno[col_escola_real]
                                         
-                                        # Deleta de forma ultra precisa a linha baseada no ID absoluto do CSV
                                         df_planilha = df_planilha.drop(index=index_linha)
-                                        
-                                        # Reescreve o arquivo no disco sem a linha deletada
                                         df_planilha.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
                                         
                                         registrar_log_auditoria(
@@ -708,7 +710,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                             f"EXCLUIU REGISTRO - ALUNO: {nome_deletado} | PASTA: {pasta_deletada} | ESCOLA: {escola_deletada}"
                                         )
                                         
-                                        strl.cache_data.clear() # Limpa o cache da RAM
+                                        strl.cache_data.clear()
                                         strl.success("Registro removido com sucesso!")
                                         strl.rerun()
                                     except Exception as err:
