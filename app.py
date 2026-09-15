@@ -79,7 +79,7 @@ def registrar_log_auditoria(nome_funcionario, acao_realizada):
         }])
         
         df_log_atualizado = pd.concat([df_log, nova_linha_log], ignore_index=True)
-        df_log_atualizado.to_csv(ARQUIVO_LOG_CSV, index=False, sep=";", encoding="utf-8-sig")
+        df_log_atualizado.to_csv(ARQUIVO_LOG_CSV, index=False, sep=",", encoding="utf-8-sig")
     except:
         pass
 
@@ -182,6 +182,7 @@ def popup_solicitar_cadastro():
                         strl.rerun()
                 except Exception as erro_gravacao:
                     strl.error(f"Erro crítico ao registrar usuário no arquivo USER.csv: {erro_gravacao}")
+
 
 # =======================================================================
 # PARTE 4: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
@@ -413,8 +414,8 @@ if tela_selecionada == "🛠️ C-PANEL":
                                     df_atualizar_log = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python', on_bad_lines='skip')
                                     df_atualizar_log.at[indice_original_excel, "STATUS"] = "CONCLUÍDO"
                                     
-                                    df_user_master.to_csv(ARQUIVO_USER_CSV, index=False, sep=";", encoding="utf-8-sig")
-                                    df_atualizar_log.to_csv(ARQUIVO_LOG_CSV, index=False, sep=";", encoding="utf-8-sig")
+                                    df_user_master.to_csv(ARQUIVO_USER_CSV, index=False, sep=",", encoding="utf-8-sig")
+                                    df_atualizar_log.to_csv(ARQUIVO_LOG_CSV, index=False, sep=",", encoding="utf-8-sig")
                                         
                                     registrar_log_auditoria("ROBSON TEIXEIRA", f"APROVOU VIA C-PANEL O FUNCIONÁRIO {funcionario_pedinte} PARA O NÍVEL {nivel_pedido}")
                                     strl.success(f"Solicitação concluída com sucesso!")
@@ -427,7 +428,7 @@ if tela_selecionada == "🛠️ C-PANEL":
                             with strl.spinner("Arquivando solicitação..."):
                                 df_atualizar_log = pd.read_csv(ARQUIVO_LOG_CSV, sep=None, engine='python', on_bad_lines='skip')
                                 df_atualizar_log.at[indice_original_excel, "STATUS"] = "CONCLUÍDO"
-                                df_atualizar_log.to_csv(ARQUIVO_LOG_CSV, index=False, sep=";", encoding="utf-8-sig")
+                                df_atualizar_log.to_csv(ARQUIVO_LOG_CSV, index=False, sep=",", encoding="utf-8-sig")
                                     
                                 registrar_log_auditoria("ROBSON TEIXEIRA", f"ARQUIVOU VIA C-PANEL O PEDIDO DE {funcionario_pedinte}")
                                 strl.cache_data.clear()
@@ -504,7 +505,7 @@ if tela_selecionada == "🛠️ C-PANEL":
                                 df_planilha_log.at[indice_chamado_excel, "STATUS"] = "CONCLUÍDO"
                                 
                                 # Grava de volta no disco com codificação segura para Excel em português
-                                df_planilha_log.to_csv(ARQUIVO_LOG_CSV, index=False, sep=";", encoding="utf-8-sig")
+                                df_planilha_log.to_csv(ARQUIVO_LOG_CSV, index=False, sep=",", encoding="utf-8-sig")
                                 
                                 registrar_log_auditoria("ROBSON TEIXEIRA", f"ENCERROU O ATENDIMENTO DO CHAMADO DE {operador_chamado} REGISTRADO EM {data_chamado}")
                                 strl.toast("✅ Chamado arquivado com sucesso!", icon="🏁")
@@ -689,7 +690,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                                 df_planilha.at[index_linha, col_origem_real] = "EDIÇÃO_MANUAL_WEB"
                                             
                                             # Força a reescrita física e o fechamento do arquivo no HD virtual
-                                            df_planilha.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
+                                            df_planilha.to_csv(ARQUIVO_BD_CSV, index=False, sep=",", encoding="utf-8-sig")
                                             
                                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"ALTEROU CADASTRO DO ALUNO PARA: {ed_nome.strip().upper()}")
                                             strl.cache_data.clear() # Limpa a memória cache do Streamlit
@@ -717,7 +718,7 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
                                         
                                         # Remove a linha fisicamente usando o índice inteiro puro
                                         df_planilha = df_planilha.drop(index=index_linha)
-                                        df_planilha.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
+                                        df_planilha.to_csv(ARQUIVO_BD_CSV, index=False, sep=",", encoding="utf-8-sig")
                                         
                                         registrar_log_auditoria(
                                             strl.session_state["usuario_nome"], 
@@ -785,7 +786,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                                 "Contato": p_contato.upper().strip()
                             }])
                             df_escolas = pd.concat([df_escolas, nova_linha], ignore_index=True)
-                            df_escolas.to_csv(ARQUIVO_ESCOLAS_CSV, index=False, sep=";", encoding="utf-8-sig")
+                            df_escolas.to_csv(ARQUIVO_ESCOLAS_CSV, index=False, sep=",", encoding="utf-8-sig")
                             
                             strl.session_state["escola_selecionada_atual"] = escola_final
                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU NOVA UNIDADE ESCOLAR: {escola_final}")
@@ -867,7 +868,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                             }])
                             
                             df_consolidado = pd.concat([df_bd_original, nova_linha_aluno], ignore_index=True)
-                            df_consolidado.to_csv(ARQUIVO_BD_CSV, index=False, sep=";", encoding="utf-8-sig")
+                            df_consolidado.to_csv(ARQUIVO_BD_CSV, index=False, sep=",", encoding="utf-8-sig")
                             
                             strl.cache_data.clear()
                             registrar_log_auditoria(strl.session_state["usuario_nome"], f"CADASTROU O ALUNO: {nome_f} NA PASTA: {pasta_f}")
@@ -1074,7 +1075,7 @@ if tela_selecionada == "⚠️ ABRIR CHAMADO":
                         }])
                         
                         df_log_novo = pd.concat([df_log_atual, nova_linha_chamado], ignore_index=True)
-                        df_log_novo.to_csv(ARQUIVO_LOG_CSV, index=False, sep=";", encoding="utf-8-sig")
+                        df_log_novo.to_csv(ARQUIVO_LOG_CSV, index=False, sep=",", encoding="utf-8-sig")
                         
                         strl.session_state["chamado_sucesso"] = True
                         strl.rerun()
