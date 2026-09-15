@@ -597,18 +597,27 @@ if tela_selecionada == "🏠 PAINEL INICIAL":
         
         if termo_busca:
             termo_upper = termo_busca.strip().upper()
-            resultado_filtro = df_dados[df_dados["NOME DO ALUNO(A)"].str.contains(termo_upper, na=False)].copy()
+            
+            # CORREÇÃO CRÍTICA: Identifica o nome real da coluna de aluno dinamicamente no CSV
+            colunas_reais_bd = list(df_dados.columns)
+            col_aluno_real = next((c for c in colunas_reais_bd if "ALUNO" in str(c).upper()), colunas_reais_bd[0])
+            col_escola_real = next((c for c in colunas_reais_bd if "ESCOLA" in str(c).upper() or "UNIDADE" in str(c).upper()), colunas_reais_bd[1])
+            col_pasta_real = next((c for c in colunas_reais_bd if "PASTA" in str(c).upper() and "ARQUIVO" not in str(c).upper()), colunas_reais_bd[2])
+            col_caixa_real = next((c for c in colunas_reais_bd if "ARQUIVO" in str(c).upper() or "CAIXA" in str(c).upper()), colunas_reais_bd[3])
+
+            resultado_filtro = df_dados[df_dados[col_aluno_real].str.contains(termo_upper, na=False)].copy()
             
             strl.markdown("### 📋 RESULTADO DA BUSCA")
             if not resultado_filtro.empty:
                 strl.success(f"BUSCA CONCLUÍDA! FORAM ENCONTRADOS {len(resultado_filtro)} REGISTROS.")
                 
-                tabela_exibicao = resultado_filtro[["NOME DO ALUNO(A)", "UNIDADE ESCOLAR", "Nº DA PASTA", "PASTA ARQUIVO"]].copy()
+                tabela_exibicao = resultado_filtro[[col_aluno_real, col_escola_real, col_pasta_real, col_caixa_real]].copy()
                 tabela_exibicao.columns = ["NOME DO ALUNO", "UNIDADE ESCOLAR", "Nº PASTA", "PASTA ARQUIVO"]
                 tabela_ordenada = tabela_exibicao.sort_values(by="NOME DO ALUNO", ascending=True)
                 
                 strl.markdown("<small>💡 Dica: Selecione o aluno marcando a linha desejada na tabela abaixo para habilitar o botão de alteração.</small>", unsafe_allow_html=True)
                 selecao = strl.dataframe(tabela_ordenada, width="stretch", hide_index=True, selection_mode="single-row", on_select="rerun")
+
 
 # =======================================================================
 # PARTE 9: 🏠 PAINEL INICIAL ( BUSCA, EDIÇÃO E EXCLUSÃO NO PAINEL INICIAL)
