@@ -150,21 +150,17 @@ def popup_solicitar_cadastro():
         elif "@" not in c_user or "." not in c_user:
             strl.error("❌ ERRO: O USUÁRIO DEVE SER OBRIGATORIAMENTE UM E-MAIL VÁLIDO!")
         else:
-            with strl.spinner("GRAVANDO REQUISIÇÃO FISICAMENTE NO DISCO..."):
+            with strl.spinner("GRAVANDO NOVO USUÁRIO EM DISCO..."):
                 try:
-                    # 1. LER DIRETAMENTE DO ARQUIVO FÍSICO COM PONTO E VÍRGULA
-                    df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=";", engine='python', on_bad_lines='skip')
+                    # 1. LER COM UTF-8-SIG PARA EXTERMINAR O CARACTERE OCULTO DO EXCEL
+                    df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=";", engine='python', on_bad_lines='skip', encoding="utf-8-sig")
                     df_usuarios = df_usuarios.fillna("NÃO IDENTIFICADO")
                     df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
                     
-                    # Mapeamento dinâmico de colunas para garantir compatibilidade
                     colunas_user_reais = list(df_usuarios.columns)
                     col_user_real = next((c for c in colunas_user_reais if "USUÁRIO" in str(c) or "USUARIO" in str(c)), "USUÁRIO")
-                    col_nivel_real = next((c for c in colunas_user_reais if "NÍVEL" in str(c) or "NIVEL" in str(c)), "NÍVEL")
-                    col_nome_real = next((c for c in colunas_user_reais if "NOME" in str(c)), "NOME")
-                    col_senha_real = next((c for c in colunas_user_reais if "SENHA" in str(c)), "SENHA")
-                    col_fone_real = next((c for c in colunas_user_reais if "FONE" in str(c) or "CONTATO" in str(c) or "TELEFONE" in str(c)), "FONE")
                     
+                    # Verifica se o e-mail digitado já existe na base de dados
                     if (df_usuarios[col_user_real].astype(str).str.upper().str.strip() == c_user).any():
                         strl.warning("Este e-mail de usuário já está cadastrado no sistema!")
                     else:
@@ -175,25 +171,17 @@ def popup_solicitar_cadastro():
                         elif len(fone_limpo) == 10:
                             fone_formatado = f"({fone_limpo[:2]}) {fone_limpo[2:6]}-{fone_limpo[6:]}"
                         
-                        # Alinha os dados estruturados em listas de elementos puros para o Pandas tabular
-                        nova_linha_user = pd.DataFrame({
-                            col_user_real: [c_user], 
-                            col_senha_real: [c_pass], 
-                            col_nome_real: [c_nome], 
-                            col_fone_real: [fone_formatado], 
-                            col_nivel_real: ["1"]
-                        })
-                        
-                        df_user_atualizado = pd.concat([df_usuarios, nova_linha_user], ignore_index=True)
-                        
-                        # 2. SALVAR DEFINITIVAMENTE USANDO PONTO E VÍRGULA (PADRÃO SEU)
-                        df_user_atualizado.to_csv(ARQUIVO_USER_CSV, index=False, sep=";", encoding="utf-8-sig")
+                        # 2. GRAVAÇÃO DIRETA E CIRÚRGICA EM MODO APPEND (TEXTO PURO EM DISCO)
+                        # Abre o arquivo local no final e injeta a linha formatada com ponto e vírgula nativo
+                        with open(ARQUIVO_USER_CSV, mode="a", encoding="utf-8-sig") as arquivo_txt:
+                            # Adiciona uma quebra de linha de segurança e a linha de dados nova
+                            arquivo_txt.write(f"\n{c_user};{c_pass};{c_nome};{fone_formatado};1")
                         
                         registrar_log_auditoria(c_nome, f"CRIOU CONTA PARA O EMAIL: {c_user}")
-                        strl.success("✅ Conta criada e gravada com sucesso no arquivo USER.csv!")
+                        strl.success("✅ Usuário registrado com sucesso e eternizado em disco!")
                         strl.rerun()
-                except Exception as e_c:
-                    strl.error(f"Erro ao salvar cadastro no arquivo de usuários: {e_c}")
+                except Exception as erro_gravacao:
+                    strl.error(f"Erro crítico ao registrar usuário no arquivo USER.csv: {erro_gravacao}")
 
 # =======================================================================
 # PARTE 4: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
