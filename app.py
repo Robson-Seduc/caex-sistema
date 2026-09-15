@@ -784,6 +784,7 @@ if tela_selecionada == "📝 NOVAS PASTAS":
         popup_cadastrar_escola()
         strl.stop()
 
+    strl.sidebar.markdown("---") # Visual complementar interno
     strl.session_state["escola_selecionada_atual"] = escola_selecionada
 
     with strl.form("form_cadastro_aluno", clear_on_submit=True):
@@ -839,7 +840,6 @@ if tela_selecionada == "📝 NOVAS PASTAS":
                         strl.rerun()
                     except Exception as erro:
                         strl.error(f"Erro ao sincronizar gravação no arquivo BD.csv: {erro}")
-
 
 # =======================================================================
 # PARTE 11: 📥 EXPORTAR DADOS (DOWNLOAD RESTRITO EM EXCEL DE A-Z)
