@@ -13,10 +13,10 @@ import getpass
 # Configuração estável da página do navegador (Título, Layout Amplo e Ícone)
 strl.set_page_config(page_title="CAEX - Sistema Integrado", layout="wide", page_icon="icone.png")
 
-# CORREÇÃO CRÍTICA LINUX: Ajustado estritamente para letras maiúsculas batendo com o GitHub (.CSV)
+# MAPEAMENTO EXATO BASEADO NA IMAGEM DO REPOSITÓRIO (Tudo com .csv minúsculo)
 ARQUIVO_BD_CSV = "BD.csv"
 ARQUIVO_ESCOLAS_CSV = "ESCOLAS.csv"
-ARQUIVO_USER_CSV = "USER.CSV"
+ARQUIVO_USER_CSV = "USER.csv"
 ARQUIVO_LOG_CSV = "LOG.csv"
 
 # CONFIGURAÇÃO INTERNA E FIXA DA CONTA MASTER DO DIRETOR
@@ -153,29 +153,19 @@ def popup_solicitar_cadastro():
         else:
             with strl.spinner("GRAVANDO NOVO USUÁRIO EM DISCO..."):
                 try:
-                    import os
+                    # Lê o arquivo direto apontando para "USER.csv" no ponto e vírgula correto
+                    df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=";", engine='python', on_bad_lines='skip', encoding="utf-8-sig")
                     
-                    # Localiza dinamicamente o nome exato do arquivo no Linux (USER.csv ou USER.CSV)
-                    arquivo_alvo_user = ARQUIVO_USER_CSV
-                    for arq in os.listdir("."):
-                        if arq.upper() == "USER.CSV":
-                            arquivo_alvo_user = arq
-                            break
-                    
-                    # Lê o arquivo tratando o caractere oculto do Excel com utf-8-sig
-                    df_usuarios = pd.read_csv(arquivo_alvo_user, sep=";", engine='python', on_bad_lines='skip', encoding="utf-8-sig")
-                    
-                    # Garante que as colunas fiquem idênticas à imagem (maiúsculas e sem espaços)
+                    # Padroniza títulos idênticos à foto do seu Excel
                     df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
                     
-                    # Definição exata das colunas baseada estritamente na imagem enviada
                     col_user = "USUÁRIO" if "USUÁRIO" in df_usuarios.columns else "USUARIO"
                     col_senha = "SENHA"
                     col_nome = "NOME"
                     col_fone = "FONE"
                     col_nivel = "NIVEL"
                     
-                    # Checagem de segurança para não cadastrar duplicados
+                    # Bloqueia e-mails repetidos
                     if (df_usuarios[col_user].astype(str).str.upper().str.strip() == c_user).any():
                         strl.warning("Este e-mail de usuário já está cadastrado no sistema!")
                     else:
@@ -186,8 +176,7 @@ def popup_solicitar_cadastro():
                         elif len(fone_limpo) == 10:
                             fone_formatado = f"({fone_limpo[:2]}) {fone_limpo[2:6]}-{fone_limpo[6:]}"
                         
-                        # Alinhamento perfeito: Cria a nova linha mapeando os mesmos títulos e tipos da imagem
-                        # O campo NIVEL recebe o valor inteiro 1 (int) combinando perfeitamente com o 2 da imagem
+                        # Monta a nova linha alinhando chaves e tipos com o Excel
                         nova_linha_user = pd.DataFrame([{
                             col_user: c_user,
                             col_senha: c_pass,
@@ -196,16 +185,15 @@ def popup_solicitar_cadastro():
                             col_nivel: int(1)
                         }])
                         
-                        # Combina as tabelas e força a reescrita estruturada com ponto e vírgula
+                        # Combina e reescreve em formato físico com ponto e vírgula
                         df_consolidado_user = pd.concat([df_usuarios, nova_linha_user], ignore_index=True)
-                        df_consolidado_user.to_csv(arquivo_alvo_user, index=False, sep=";", encoding="utf-8-sig")
+                        df_consolidado_user.to_csv(ARQUIVO_USER_CSV, index=False, sep=";", encoding="utf-8-sig")
                         
                         registrar_log_auditoria(c_nome, f"CRIOU CONTA PARA O EMAIL: {c_user}")
                         strl.success("✅ Usuário cadastrado com sucesso e gravado em disco!")
                         strl.rerun()
                 except Exception as erro_gravacao:
                     strl.error(f"Erro crítico ao registrar usuário no arquivo USER.csv: {erro_gravacao}")
-
 
 # =======================================================================
 # PARTE 4: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
