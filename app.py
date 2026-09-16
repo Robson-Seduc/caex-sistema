@@ -194,6 +194,7 @@ def popup_solicitar_cadastro():
                     strl.error(f"Erro crítico ao despachar chamado de cadastro para o arquivo LOG.csv: {e_solicitacao}")
 
 
+
 # =======================================================================
 # PARTE 4: FORMULÁRIOS REQUERIMENTO DE ELEVAÇÃO DE NÍVEL (CORRIGIDO)
 # =======================================================================
