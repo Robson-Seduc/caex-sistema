@@ -274,28 +274,28 @@ if not strl.session_state["autenticado"]:
             strl.rerun()
         else:
             try:
-                # Carrega a tabela de usuários a partir do arquivo USER.csv
-                df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=None, engine='python', on_bad_lines='skip')
+                # Carrega a tabela usando codificação segura para ler caracteres com acento em português
+                df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=";", engine='python', on_bad_lines='skip', encoding="utf-8-sig")
                 df_usuarios = df_usuarios.fillna("NÃO IDENTIFICADO")
                 
-                # Normaliza todas as colunas para letras maiúsculas tirando espaços extras
-                df_usuarios.columns = [str(c).strip().upper() for c in df_usuarios.columns]
+                # Garante que as colunas fiquem exatamente com os nomes originais em minúsculo/maiúsculo da sua planilha
+                df_usuarios.columns = [str(c).strip() for c in df_usuarios.columns]
                 
-                # Identifica as colunas dinamicamente para evitar o KeyError
-                colunas_user_reais = list(df_usuarios.columns)
-                col_user_real = next((c for c in colunas_user_reais if "USUÁRIO" in str(c) or "USUARIO" in str(c)), colunas_user_reais[0])
-                col_nivel_real = next((c for c in colunas_user_reais if "NÍVEL" in str(c) or "NIVEL" in str(c)), colunas_user_reais[-1])
-                col_nome_real = next((c for c in colunas_user_reais if "NOME" in str(c)), "NOME")
-                col_senha_real = next((c for c in colunas_user_reais if "SENHA" in str(c)), "SENHA")
+                # Vinculação exata das chaves baseada estritamente no arquivo USER.csv enviado
+                col_user = "c_user"
+                col_senha = "c_pass"
+                col_nome = "c_nome"
+                col_nivel = "NIVEL"
                 
-                filtro_user = (df_usuarios[col_user_real].astype(str).str.strip().str.upper() == u_clean) & \
-                              (df_usuarios[col_senha_real].astype(str).str.strip() == s_clean)
+                # Executa a filtragem cruzando o e-mail e a senha informados
+                filtro_user = (df_usuarios[col_user].astype(str).str.strip().str.upper() == u_clean) & \
+                              (df_usuarios[col_senha].astype(str).str.strip() == s_clean)
                 usuario_valido = df_usuarios[filtro_user]
                 
                 if not usuario_valido.empty:
-                    # CORREÇÃO DEFINITIVA DE SINTAXE: Coleta o valor puro da primeira linha do vetor sem conflito de iloc
-                    nome_real = str(usuario_valido[col_nome_real].values[0]).upper().strip()
-                    nivel_acesso = str(usuario_valido[col_nivel_real].values[0]).strip()
+                    # Extrai os valores escalares diretamente do vetor de resultados
+                    nome_real = str(usuario_valido[col_nome].values[0]).upper().strip()
+                    nivel_acesso = str(usuario_valido[col_nivel].values[0]).strip()
                     
                     legendas_nivel = {"1": "1 - CONSULTA (RESTRITO)", "2": "2 - EDITOR (PROMOVIDO)", "3": "3 - ADMINISTRADOR (TOTAL)"}
                     nivel_legenda = legendas_nivel.get(nivel_acesso, f"{nivel_acesso} - DESCONHECIDO")
@@ -355,6 +355,7 @@ tela_selecionada = strl.sidebar.radio(
     opcoes_menu_disponiveis, 
     key="chave_menu"
 )
+
 
 
 # =======================================================================
