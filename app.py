@@ -274,14 +274,14 @@ if not strl.session_state["autenticado"]:
             strl.rerun()
         else:
             try:
-                # Carrega a tabela usando codificação segura para ler caracteres com acento em português
-                df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=";", engine='python', on_bad_lines='skip', encoding="utf-8-sig")
+                # CORREÇÃO DEFINITIVA: Força a leitura em cp1252 para aceitar os acentos gerados pelo Excel
+                df_usuarios = pd.read_csv(ARQUIVO_USER_CSV, sep=";", engine='python', on_bad_lines='skip', encoding="cp1252")
                 df_usuarios = df_usuarios.fillna("NÃO IDENTIFICADO")
                 
-                # Garante que as colunas fiquem exatamente com os nomes originais em minúsculo/maiúsculo da sua planilha
+                # Garante que as colunas fiquem exatamente com os nomes originais da sua planilha (c_user, c_pass, etc.)
                 df_usuarios.columns = [str(c).strip() for c in df_usuarios.columns]
                 
-                # Vinculação exata das chaves baseada estritamente no arquivo USER.csv enviado
+                # Vinculação exata das chaves baseada estritamente no seu arquivo enviado
                 col_user = "c_user"
                 col_senha = "c_pass"
                 col_nome = "c_nome"
@@ -293,7 +293,7 @@ if not strl.session_state["autenticado"]:
                 usuario_valido = df_usuarios[filtro_user]
                 
                 if not usuario_valido.empty:
-                    # Extrai os valores escalares diretamente do vetor de resultados
+                    # Extrai os valores escalares de forma segura
                     nome_real = str(usuario_valido[col_nome].values[0]).upper().strip()
                     nivel_acesso = str(usuario_valido[col_nivel].values[0]).strip()
                     
@@ -355,8 +355,6 @@ tela_selecionada = strl.sidebar.radio(
     opcoes_menu_disponiveis, 
     key="chave_menu"
 )
-
-
 
 # =======================================================================
 # PARTE 6: PAINEL DE CONTROLE EXCLUSIVO MASTER - FLUXO 1 (🛠️ C-PANEL)
